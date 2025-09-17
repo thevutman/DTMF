@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cliente Mobile A - Maraca</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #333;
+            color: white;
+            margin: 0;
+            text-align: center;
+        }
+        #maraca-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+        #status-message {
+            margin-top: 20px;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div id="waiting-state">
+        <h2>Esperando la señal de Bad Bunny...</h2>
+    </div>
+
+    <div id="maraca-container">
+        <h1>¡Agita tu teléfono!</h1>
+        <p id="status-message">La maraca se activará después de la foto.</p>
+    </div>
+
+    <script src="sketch.js"></script>
+</body>
+</html>
