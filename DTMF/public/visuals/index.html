@@ -12,12 +12,23 @@
     <script>
         const socket = io();
 
-        // Estado inicial en 0 (pantalla en negro)
-        let estadoActual = 0; // 0: inicio, 1: estado 3, 2: foto tomada, 3: final
+        let estadoActual = 0;
         let fotoMostrada = null;
-        let stickers = [];
-        let maracaData = { x: 0, y: 0 };
+        let stickers = []; // Aquí se almacenarán los stickers recibidos
+        let shakeMagnitude = 0;
         let textoAnimado = "Junten todos para la foto";
+        
+        // Objeto para almacenar las imágenes de los stickers
+        const stickerImages = {};
+
+        function preload() {
+            // Precargamos las imágenes de los stickers.
+            // Asegúrate de que las rutas sean correctas.
+            stickerImages['sticker-1'] = loadImage('../assets/palmera.png');
+            stickerImages['sticker-2'] = loadImage('../assets/palmera.png');
+            stickerImages['sticker-3'] = loadImage('../assets/palmera.png');
+            stickerImages['sticker-4'] = loadImage('../assets/palmera.png');
+        }
 
         function setup() {
             createCanvas(windowWidth, windowHeight);
@@ -29,24 +40,42 @@
         function draw() {
             background(0);
 
-            // Solo dibuja cuando el estado es 1 (recibido del remoto)
+            // Estado 1: Pantalla de espera para la foto
             if (estadoActual === 1) {
                 fill(255);
                 text(textoAnimado, width / 2, height / 2);
-            } else if (estadoActual === 2) {
-                // ... (el resto del código para mostrar la foto y stickers es el mismo)
+            } 
+            
+            // Estado 2: Foto tomada y maraca activa
+            else if (estadoActual === 2) {
                 if (fotoMostrada) {
                     imageMode(CENTER);
                     image(fotoMostrada, width / 2, height / 2, windowWidth, windowHeight);
                 }
                 
+                // ¡NUEVO! Dibujar los stickers en la pantalla
                 stickers.forEach(s => {
-                    // Aquí iría la lógica para dibujar los stickers
+                    const stickerImg = stickerImages[s.stickerId];
+                    if (stickerImg) {
+                        // Calcular las coordenadas absolutas
+                        const x = s.x * width;
+                        const y = s.y * height;
+                        imageMode(CENTER);
+                        image(stickerImg, x, y, 100, 100); // 100x100 es un tamaño de ejemplo
+                    }
                 });
+
+                // Efecto de la maraca
+                if (shakeMagnitude > 0) {
+                    fill(255, 255, 255, 100);
+                    noStroke();
+                    ellipse(width / 2, height / 2, shakeMagnitude * 10);
+                    shakeMagnitude *= 0.9;
+                }
             }
-            // Agregamos una condición para que el visualizador también reciba la foto final
-             else if (estadoActual === 3) {
-                // Aquí podrías mostrar la foto final con los stickers para que la gente la vea
+            
+            // Estado 3: Foto final
+            else if (estadoActual === 3) {
                 if (fotoMostrada) {
                     imageMode(CENTER);
                     image(fotoMostrada, width / 2, height / 2, windowWidth, windowHeight);
@@ -54,39 +83,41 @@
             }
         }
 
-        // Manejadores de eventos de Socket.io
+        // --- Manejadores de eventos de Socket.io ---
+
         socket.on('cambiar_a_escena_3', () => {
             console.log('Cambiando a escena del Estado 3...');
-            estadoActual = 1; // Cambia el estado a 1 para que draw() muestre el texto
+            estadoActual = 1;
         });
 
         socket.on('mostrar_foto', (imageData) => {
             console.log('Visualizador recibe la foto.');
-            estadoActual = 2; // Cambia el estado a 2 para mostrar la foto
+            estadoActual = 2;
             loadImage(imageData, img => {
                 fotoMostrada = img;
             });
         });
 
+        // ¡NUEVO! Manejador para el efecto de la maraca
+        socket.on('efecto_maraca', (data) => {
+            const magnitude = Math.sqrt(data.x * data.x + data.y * data.y + data.z * data.z);
+            shakeMagnitude = magnitude;
+            console.log('Visualizador recibe datos de maraca. Magnitud:', magnitude);
+        });
+
+        // ¡NUEVO! Manejador para los stickers
         socket.on('agregar_sticker_visualizador', (stickerData) => {
             console.log('Visualizador recibe un sticker.');
             stickers.push(stickerData);
         });
 
-        socket.on('efecto_maraca', (data) => {
-            maracaData = data;
-        });
-
         socket.on('mostrar_foto_final', (data) => {
             console.log('Visualizador recibe la foto final.');
-            estadoActual = 3; // Opcional: un nuevo estado para la foto final
+            estadoActual = 3;
             loadImage(data.foto, img => {
                 fotoMostrada = img;
             });
-            // Opcional: Lógica para mostrar los stickers finales si no se pegaron en el servidor
-            stickers = data.stickers;
         });
-
     </script>
 </body>
 </html>
