@@ -4,6 +4,7 @@
     <title>Visualizador DTMF</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/addons/p5.sound.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background-color: black; }
     </style>
@@ -17,6 +18,8 @@
         let stickers = []; // Aquí se almacenarán los stickers recibidos
         let shakeMagnitude = 0;
         let textoAnimado = "Junten todos para la foto";
+
+        let musicaFondo;
         
         // Objeto para almacenar las imágenes de los stickers
         const stickerImages = {};
@@ -28,6 +31,9 @@
             stickerImages['sticker-2'] = loadImage('../assets/palmera.png');
             stickerImages['sticker-3'] = loadImage('../assets/palmera.png');
             stickerImages['sticker-4'] = loadImage('../assets/palmera.png');
+
+            // Cargar la música
+            musicaFondo = loadSound('../assets/sonido/cancion.mp3');
         }
 
         function setup() {
@@ -117,6 +123,29 @@
             loadImage(data.foto, img => {
                 fotoMostrada = img;
             });
+        });
+
+        // Manejar los comandos de música desde el Remoto
+        socket.on('control_musica_visualizador', (action) => {
+            console.log(`Visualizador recibe orden de música: ${action}`);
+
+            if (musicaFondo.isLoaded()) {
+                if (action === 'play' && !musicaFondo.isPlaying()) {
+                    musicaFondo.play();
+                    console.log('Música de fondo reproducida.');
+                } else if (action === 'pause' && musicaFondo.isPlaying()) {
+                    musicaFondo.pause();
+                    console.log('Música de fondo pausada.');
+                } else if (action === 'forward') {
+                    const currentTime = musicaFondo.currentTime();
+                    const newTime = currentTime + 10;
+                    // Asegurarse de no adelantar más allá de la duración
+                    if (newTime < musicaFondo.duration()) {
+                        musicaFondo.jump(newTime);
+                    }
+                    console.log('Música de fondo adelantada 10 segundos.');
+                }
+            }
         });
     </script>
 </body>

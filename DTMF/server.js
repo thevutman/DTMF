@@ -79,6 +79,13 @@ io.on('connection', (socket) => {
         io.emit('mostrar_foto_final', { foto: fotoActual, stickers: stickers });
     });
 
+    // Manejar los controles de música del Remoto
+    socket.on('control_musica', (action) => {
+        console.log(`Orden de música recibida: ${action}`);
+        // Reenviar la orden al Visualizador
+        io.emit('control_musica_visualizador', action);
+    });
+
     // Manejar la desconexión del usuario
     socket.on('disconnect', () => {
         console.log(`Usuario desconectado: ${socket.id}`);
