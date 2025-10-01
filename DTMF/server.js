@@ -34,6 +34,7 @@ io.on('connection', (socket) => {
         // Puedes usar io.to(socket.id) si solo quieres enviarlo a un socket,
         // pero en este caso queremos que lo reciba el cliente Desktop que esté conectado
         io.emit('habilitar_foto');
+        io.emit('mostrar_gif_sonrie');
     });
 
     // Manejar la foto enviada por el Cliente Desktop
@@ -89,6 +90,30 @@ io.on('connection', (socket) => {
     // Manejar la desconexión del usuario
     socket.on('disconnect', () => {
         console.log(`Usuario desconectado: ${socket.id}`);
+    });
+
+     // 1. MANEJADOR PARA INICIAR EL ESTADO 2 (Recibido desde el Remoto)
+    socket.on('iniciar_estado_2', () => {
+        console.log('--- INICIANDO ESTADO 2: PETARDOS Y TIROS ---');
+        // Enviar señal a TODOS los móviles (A y B) para que activen sus sensores.
+        // Usaremos el mismo evento para ambos, ya que la lógica en los móviles será similar.
+        io.emit('activar_estado_2_moviles');
+        
+        // Opcional: Si el Visualizador necesita una señal para cambiar de estado/pantalla.
+        io.emit('cambiar_a_escena_2');
+    });
+
+    // 2. MANEJADOR PARA RECIBIR Y REENVIAR EL FUEGO ARTIFICIAL (Recibido desde Mobile 1 o 2)
+    socket.on('lanzar_fuego_artificial', (data) => {
+        // La 'data' contendrá la intensidad del movimiento y el color o ID del móvil.
+        console.log(`Fuego artificial recibido de Mobile ${data.mobileId}. Reenviando a Visualizador.`);
+        
+        // Reenviar la señal y la data (posición, color, etc.) a SOLO el Visualizador.
+        // Los móviles no necesitan saber cuándo dispara el otro.
+        io.emit('mostrar_fuego_artificial', {
+            mobileId: data.mobileId,
+            intensity: data.intensity // Usaremos la intensidad para hacer el efecto más grande/pequeño
+        });
     });
 });
 
