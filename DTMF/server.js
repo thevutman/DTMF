@@ -31,9 +31,8 @@ io.on('connection', (socket) => {
     socket.on('habilitar_foto_desktop', () => {
         console.log('Habilitando botón de foto en el cliente Desktop.');
         // Emitir un evento específico al cliente Desktop
-        // Puedes usar io.to(socket.id) si solo quieres enviarlo a un socket,
-        // pero en este caso queremos que lo reciba el cliente Desktop que esté conectado
         io.emit('habilitar_foto');
+        io.emit('mostrar_gif_sonrie');
     });
 
     // Manejar la foto enviada por el Cliente Desktop
@@ -70,11 +69,6 @@ io.on('connection', (socket) => {
     socket.on('finalizar_experiencia', () => {
         console.log('Señal de finalización recibida. Preparando foto final.');
 
-        // Construir la foto final con todos los stickers
-        // Aquí necesitarás lógica más compleja si quieres "pegar" los stickers
-        // en la imagen final en el servidor. O, simplemente, puedes enviar
-        // la foto original y el array de stickers a los clientes móviles.
-
         // Opción 1 (más simple): Enviar la foto original y el array de stickers
         io.emit('mostrar_foto_final', { foto: fotoActual, stickers: stickers });
     });
@@ -89,6 +83,32 @@ io.on('connection', (socket) => {
     // Manejar la desconexión del usuario
     socket.on('disconnect', () => {
         console.log(`Usuario desconectado: ${socket.id}`);
+    });
+
+    // =========================================================
+    // LÓGICA DEL ESTADO 2 (PETARDOS) - AJUSTE DE ESCENA 4
+    // =========================================================
+
+    // 1. MANEJADOR PARA INICIAR EL ESTADO 2 (Recibido desde el Remoto)
+    socket.on('iniciar_estado_2', () => {
+        console.log('--- SERVIDOR: INICIANDO ESTADO 2 (PETARDOS) ---');
+        
+        // 1. Activa los sensores en TODOS los móviles (Mobile A y Mobile B)
+        io.emit('activar_estado_2_moviles'); 
+        
+        // 2. Cambia el Visualizador al ESTADO 4 para dibujar los fuegos artificiales
+        io.emit('cambiar_a_escena_4'); // <-- ¡AJUSTE REALIZADO!
+    });
+
+    // 2. MANEJADOR PARA RECIBIR Y REENVIAR EL FUEGO ARTIFICIAL (Recibido desde Mobile 1 o 2)
+    socket.on('lanzar_fuego_artificial', (data) => {
+        console.log(`SERVIDOR: Retransmitiendo disparo de ${data.mobileId}.`);
+        
+        // El Visualizador está escuchando el evento 'mostrar_fuego_artificial'
+        io.emit('mostrar_fuego_artificial', {
+            mobileId: data.mobileId,
+            intensity: data.intensity
+        });
     });
 });
 
