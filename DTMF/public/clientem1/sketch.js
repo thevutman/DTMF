@@ -4,7 +4,7 @@ const mainContainer = document.getElementById('main-container');
 let maracaSound;
 let maracaActivated = false;
 let lastSentTime = 0;
-const throttleDelay = 100; // Limita el envío de datos a 10 veces por segundo
+const throttleDelay = 100;
 
 // Función de P5.js para precargar assets
 function preload() {
@@ -19,10 +19,11 @@ function setup() {
     socket.on('cambiar_a_escena_3', () => {
         console.log('Señal recibida para el Estado 3. Creando la interfaz de la maraca.');
         
+        // Crear dinámicamente los elementos de la interfaz. Esto lo hace el JS y no el HTML.
         const maracaContainer = document.createElement('div');
-        maracaContainer.id = 'main-container';
+        maracaContainer.id = 'maraca-container';
         maracaContainer.innerHTML = `
-            <h1>Estado 3</h1>
+            <h1>¡Prepárense!</h1>
             <p id="status-message">Esperando la foto...</p>
         `;
         
@@ -64,25 +65,21 @@ function setup() {
     });
 }
 
-// 3. Función para procesar los datos de movimiento (devicemotion)
-function deviceMoved(event) {
-    alert('Device moved');
-    // if (!maracaActivated) return;
+// Función para procesar los datos de movimiento (devicemotion)
+function handleMotion(event) {
+    if (!maracaActivated) return;
 
-    // Obtener datos de aceleración y rotación
     const acceleration = event.accelerationIncludingGravity;
     const rotation = event.rotationRate;
     
-    // Calcular la magnitud del movimiento (para detectar un "agitón")
     const magnitude = Math.sqrt(
         acceleration.x * acceleration.x +
         acceleration.y * acceleration.y +
         acceleration.z * acceleration.z
     );
 
-    const threshold = 20; // Umbral de movimiento para activar la maraca
+    const threshold = 20;
 
-    // Si la magnitud supera el umbral y ha pasado suficiente tiempo
     if (magnitude > threshold && (Date.now() - lastSentTime > throttleDelay)) {
         console.log('¡Agitando! Enviando datos de sensores...');
         
@@ -96,11 +93,9 @@ function deviceMoved(event) {
             }, 500);
         }
 
-        // Reproducir el sonido
         maracaSound.currentTime = 0;
         maracaSound.play();
 
-        // Enviar los datos detallados al servidor
         socket.emit('maraca_agitada', {
             acceleration: { x: acceleration.x, y: acceleration.y, z: acceleration.z },
             rotation: { alpha: rotation.alpha, beta: rotation.beta, gamma: rotation.gamma }
