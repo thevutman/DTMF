@@ -1,82 +1,49 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Cliente Mobile B - Stickers</title>
+    <title>Mobile B · Stickers DTMF</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #f0f0f0;
-            margin: 0;
-            text-align: center;
-        }
-        #waiting-state {
-            font-size: 2em;
-            color: #666;
-        }
-        #sticker-container {
-            display: none; /* Oculto por defecto */
-            flex-direction: column;
-            align-items: center;
-            width: 90%;
-            max-width: 600px;
-        }
-        #photo-area {
-            position: relative;
-            width: 100%;
-            padding-bottom: 75%; /* Proporción 4:3 */
-            background-color: #ddd;
-            overflow: hidden;
-            border: 2px solid #333;
-        }
-        #photo {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .sticker-option {
-            width: 80px;
-            height: 80px;
-            margin: 10px;
-            cursor: pointer;
-            border-radius: 50%;
-            background-color: #ccc;
-        }
-        #sticker-options {
-            display: flex;
-            justify-content: center;
-            margin-top: 20px;
-        }
-        #sticker-1 { 
-            background-image: url('../assets/palmera.png'); 
-            background-size: cover; 
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="waiting-state">
-        <h2>Esperando la señal de Bad Bunny...</h2>
-    </div>
+    <main id="main-container" class="screen">
+        <div id="waiting-state" class="fade">
+            <div class="status-pill">Esperando señal</div>
+            <h1>Equipo Luz</h1>
+            <p>Mantente atento. Serás quien pegue los stickers oficiales en la foto.</p>
+        </div>
 
-    <div id="sticker-container">
-        <div id="photo-area">
-            <img id="photo" src="" alt="Foto de la experiencia">
-        </div>
-        <div id="sticker-options">
-            <div id="sticker-1" class="sticker-option"></div>
-            <div id="sticker-2" class="sticker-option"></div>
-            <div id="sticker-3" class="sticker-option"></div>
-            <div id="sticker-4" class="sticker-option"></div>
-        </div>
-    </div>
+        <section id="scene-one" class="scene" hidden>
+            <div class="status-pill">Escena 1 · Pulso DTMF</div>
+            <h1>Toca al beat</h1>
+            <p>Golpea el botón en cada ritmo para dibujar rayos en la pantalla gigante.</p>
+            <button id="btn-pulse" class="action-button">Lanzar rayo</button>
+            <p class="small-text">Tip: no spam, sigue el tempo que marque la tarima.</p>
+        </section>
+
+        <section id="scene-two" class="scene" hidden>
+            <div class="status-pill">Escena 2 · Fuegos</div>
+            <h1>Sacude hacia el cielo</h1>
+            <p>Cada sacudida dispara fuegos digitales. Levanta el móvil como si grabaras el momento.</p>
+        </section>
+
+        <section id="scene-three" class="scene" hidden>
+            <div class="status-pill">Escena 3 · Stickers Tribu</div>
+            <p id="scene-three-message">Espera la foto del staff para comenzar a decorar.</p>
+            <div id="photo-area">
+                <img id="photo" alt="Foto tribu DTMF">
+            </div>
+            <div id="sticker-options"></div>
+            <p class="small-text">Arrastra y suelta un sticker dentro del marco.</p>
+        </section>
+
+        <section id="scene-final" class="scene" hidden>
+            <div class="status-pill">Escena final</div>
+            <h1>¡Foto guardada!</h1>
+            <p>Gracias por ser parte de la vibra. Prepárate para el siguiente track.</p>
+        </section>
+    </main>
 
     <script src="sketch.js"></script>
 </body>

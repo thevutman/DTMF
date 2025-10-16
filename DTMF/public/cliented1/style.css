@@ -1,0 +1,105 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+:root {
+    --bg: #080912;
+    --panel: rgba(20, 22, 44, 0.85);
+    --highlight: #f15bb5;
+    --accent: #00bbf9;
+    --text: #f7f7ff;
+    font-family: 'Poppins', 'Helvetica Neue', Arial, sans-serif;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at top, rgba(241, 91, 181, 0.35), transparent 55%),
+        radial-gradient(circle at bottom, rgba(0, 187, 249, 0.3), transparent 65%),
+        var(--bg);
+    color: var(--text);
+    padding: 32px;
+}
+
+#staff-wrapper {
+    width: min(960px, 100%);
+    display: grid;
+    gap: 24px;
+    grid-template-columns: 1fr 1.2fr;
+    align-items: start;
+}
+
+#status-panel {
+    background: var(--panel);
+    border-radius: 28px;
+    padding: 28px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(12px);
+}
+
+#status-panel h1 {
+    margin: 0 0 12px;
+    font-size: 2rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+#status-panel p {
+    margin: 0;
+    line-height: 1.45;
+}
+
+#state-3-container {
+    background: rgba(10, 10, 25, 0.8);
+    border-radius: 28px;
+    padding: 24px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    min-height: 420px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+}
+
+#video-container {
+    width: 100%;
+    max-width: 640px;
+    aspect-ratio: 4 / 3;
+    border-radius: 18px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+#btn-tomar-foto {
+    padding: 18px 32px;
+    border-radius: 999px;
+    border: none;
+    background: linear-gradient(120deg, var(--highlight), #ff85c6);
+    color: var(--text);
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 16px 36px rgba(241, 91, 181, 0.4);
+}
+
+#btn-tomar-foto:disabled {
+    background: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.7);
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+#btn-tomar-foto:not(:disabled):active {
+    transform: scale(0.97);
+}
+
+@media (max-width: 960px) {
+    #staff-wrapper {
+        grid-template-columns: 1fr;
+    }
+}

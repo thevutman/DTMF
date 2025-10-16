@@ -19,6 +19,14 @@ let stickers = []; // Array para almacenar los stickers y sus posiciones
 io.on('connection', (socket) => {
     console.log(`Usuario conectado: ${socket.id}`);
 
+    // Manejar el evento para activar la Escena 1 (intro DTMF)
+    socket.on('activar_escena_1', () => {
+        console.log('Escena 1 iniciada desde el remoto.');
+        fotoActual = null;
+        stickers = [];
+        io.emit('escena_1_intro');
+    });
+
     // Manejar el evento para activar el Estado 3 (del cliente Remote)
     socket.on('activar_estado_3', () => {
         console.log('Señal de activación del Estado 3 recibida del Remoto.');
@@ -47,6 +55,11 @@ io.on('connection', (socket) => {
         // Enviar una señal específica a Mobile A para que active la maraca
         io.emit('activar_maraca');
         console.log('Enviando señal para activar la maraca.');
+    });
+
+    // Pulsos de la escena 1 enviados por los móviles
+    socket.on('pulso_dtmf', (payload) => {
+        io.emit('pulso_dtmf_visual', payload);
     });
 
     // Manejar los datos de la maraca del Cliente Mobile A
