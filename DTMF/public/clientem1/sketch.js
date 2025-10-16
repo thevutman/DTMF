@@ -5,24 +5,20 @@ const MOBILE_ID = 'mobile_a';
 const FIREWORK_THRESHOLD = 28;
 const MARACA_THRESHOLD = 16;
 const SENSOR_THROTTLE = 120;
-const INTRO_THROTTLE = 350;
 
-let estadoActual = 0; // 0: esperando, 1: intro DTMF, 2: petardos, 3: foto/maraca
+let estadoActual = 0; // 0: esperando, 1: intro sunset, 2: petardos, 3: foto/maraca
 let maracaActivated = false;
 let petardosActivated = false;
+let sunsetInteractionActive = false;
 
 let lastSensorDispatch = 0;
-let lastIntroPulse = 0;
 
 let maracaSound;
-let osc;
 let audioPrimed = false;
 let meterFill;
 
 let motionPermissionGranted =
     typeof DeviceMotionEvent === 'undefined' || typeof DeviceMotionEvent.requestPermission !== 'function';
-let selfieStatusEl = null;
-let selfiePreviewImg = null;
 
 // --- nuevas variables para controlar loop/stop de la maraca ---
 let maracaLooping = false;
@@ -47,13 +43,22 @@ function setup() {
         estadoActual = 1;
         maracaActivated = false;
         petardosActivated = false;
-        renderSceneOne();
+        sunsetInteractionActive = false;
+        renderSunsetWelcome();
+    });
+
+    socket.on('activar_interaccion_moviles', () => {
+        if (estadoActual === 1 && !sunsetInteractionActive) {
+            sunsetInteractionActive = true;
+            renderSunsetButton();
+        }
     });
 
     socket.on('activar_estado_2_moviles', () => {
         estadoActual = 2;
         maracaActivated = false;
         petardosActivated = true;
+        sunsetInteractionActive = false;
         renderSceneTwo();
         requestSensorPermission();
     });
@@ -62,6 +67,7 @@ function setup() {
         estadoActual = 3;
         maracaActivated = false;
         petardosActivated = false;
+        sunsetInteractionActive = false;
         renderSceneThreeWaiting();
     });
 
@@ -95,6 +101,7 @@ function setup() {
         estadoActual = 0;
         maracaActivated = false;
         petardosActivated = false;
+        sunsetInteractionActive = false;
         renderClosing();
     });
 }
@@ -148,20 +155,33 @@ function renderWaiting() {
     `;
 }
 
-function renderSceneOne() {
+function renderSunsetWelcome() {
     mainContainer.innerHTML = `
         <div class="fade">
-            <div class="status-pill">Escena 1 · Pulso DTMF</div>
-            <h1>Golpea el ritmo</h1>
-            <p>Toca el botón cada vez que Bad Bunny grite. Tus pulsos pintan la pantalla gigante.</p>
-            <button id="btn-pulse" class="action-button">Enviar pulso</button>
-            <p class="small-text">Tip: siente el beat y no lo hagas más de una vez por beat.</p>
+            <div class="status-pill">Escena 1 · Intro musical</div>
+            <h1>Mobile A conectado...</h1>
+            <p>Escucha el build up. El sol espera tu señal para encender el horizonte.</p>
+            <p class="small-text">En segundos aparecerá el botón ☀️ para calentar el cielo.</p>
+        </div>
+    `;
+}
+
+function renderSunsetButton() {
+    mainContainer.innerHTML = `
+        <div class="fade">
+            <div class="status-pill">Escena 1 · Control ☀️</div>
+            <h1>Ilumina el sunset</h1>
+            <p>Cuando el beat lo pida, toca el botón SUN para subir los tonos naranja.</p>
+            <button id="btn-sun" class="action-button sun-button">SUN / SUNSET ☀️</button>
+            <p class="small-text">Cada toque empuja el visualizador hacia un atardecer más cálido.</p>
         </div>
     `;
 
-    const pulseButton = document.getElementById('btn-pulse');
-    if (pulseButton) {
-        pulseButton.addEventListener('click', sendIntroPulse);
+    const sunButton = document.getElementById('btn-sun');
+    if (sunButton) {
+        sunButton.addEventListener('click', () => {
+            socket.emit('cambiar_momento_sunset', 'sol');
+        });
     }
 }
 
@@ -257,34 +277,6 @@ function requestSensorPermission() {
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission().catch(() => { /* Ignorar si el usuario cancela */ });
     }
-}
-
-function sendIntroPulse() {
-    const now = Date.now();
-    if (now - lastIntroPulse < INTRO_THROTTLE) {
-        return;
-    }
-    lastIntroPulse = now;
-
-    const tones = ['D', 'T', 'M', 'F'];
-    const tone = tones[Math.floor(Math.random() * tones.length)];
-    const intensity = random(0.4, 1);
-
-    socket.emit('pulso_dtmf', {
-        mobileId: MOBILE_ID,
-        tone,
-        intensity
-    });
-
-    if (!osc) {
-        osc = new p5.Oscillator('triangle');
-        osc.start();
-        osc.amp(0, 0);
-    }
-    const baseFrequency = tone === 'D' ? 415 : tone === 'T' ? 554 : tone === 'M' ? 622 : 698;
-    osc.freq(baseFrequency);
-    osc.amp(0.45, 0.02);
-    osc.amp(0, 0.18);
 }
 
 function handleMotion(event) {

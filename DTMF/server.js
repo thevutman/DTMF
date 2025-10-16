@@ -62,6 +62,17 @@ io.on('connection', (socket) => {
         io.emit('pulso_dtmf_visual', payload);
     });
 
+    // Escena 1 · Amanecer controlado
+    socket.on('activar_interaccion_sunset', () => {
+        console.log('Visualizador: activando control de atardecer en móviles.');
+        io.emit('activar_interaccion_moviles');
+    });
+
+    socket.on('cambiar_momento_sunset', (momento) => {
+        console.log(`Solicitud de cambio de color recibida: ${momento}`);
+        io.emit('actualizar_sunset_color', momento);
+    });
+
     // Manejar los datos de la maraca del Cliente Mobile A
     socket.on('maraca_agitada', (data) => {
         console.log(`Movimiento de maraca detectado: x=${data.x}`);

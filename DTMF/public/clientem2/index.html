@@ -15,11 +15,18 @@
         </div>
 
         <section id="scene-one" class="scene" hidden>
-            <div class="status-pill">Escena 1 · Pulso DTMF</div>
-            <h1>Toca al beat</h1>
-            <p>Golpea el botón en cada ritmo para dibujar rayos en la pantalla gigante.</p>
-            <button id="btn-pulse" class="action-button">Lanzar rayo</button>
-            <p class="small-text">Tip: no spam, sigue el tempo que marque la tarima.</p>
+            <div class="status-pill">Escena 1 · Intro musical</div>
+            <div id="scene-one-phase-1" class="sunset-phase">
+                <h1>Mobile B conectado...</h1>
+                <p>Escucha el intro. Serás quien invoque la noche cuando el sol aparezca.</p>
+                <p class="small-text">El botón 🌙 se activará automáticamente cuando el visualizador abra el portal nocturno.</p>
+            </div>
+            <div id="scene-one-phase-2" class="sunset-phase" hidden>
+                <h1>Moon Control 🌙</h1>
+                <p>Toca MOON para enfriar el cielo y llevarlo a tonos púrpura.</p>
+                <button id="btn-moon" class="action-button moon-button">MOON / NIGHT 🌙</button>
+                <p class="small-text">Cada toque pinta el atardecer con sombras nocturnas.</p>
+            </div>
         </section>
 
         <section id="scene-two" class="scene" hidden>
