@@ -13,7 +13,7 @@ let sunsetInteractionActive = false;
 let lastSensorDispatch = 0;
 
 let stickerGhost = null;
-let currentStickerId = null;
+let currentSticker = null;
 
 const waitingState = document.getElementById('waiting-state');
 const sceneOne = document.getElementById('scene-one');
@@ -321,13 +321,21 @@ function setupStickerOptions() {
     if (!stickerOptionsContainer) return;
 
     stickerOptionsContainer.innerHTML = '';
-    const toneMap = ['D', 'T', 'M', 'F'];
-    toneMap.forEach(tone => {
+    // lista de stickers disponibles (ids deben coincidir con los cargados en el visual)
+    const stickersList = [
+        { id: 'base', label: 'Palmera', tone: 'D' },
+        { id: 'concho', label: 'Concho', tone: 'T' },
+        { id: 'sillas', label: 'Sillas', tone: 'M' },
+        { id: 'ticket', label: 'Ticket', tone: 'F' }
+    ];
+
+    stickersList.forEach(s => {
         const sticker = document.createElement('div');
         sticker.className = 'sticker-option';
-        sticker.dataset.tone = tone;
-        sticker.textContent = tone;
-        sticker.id = `sticker-${tone}`;
+        sticker.dataset.stickerId = s.id;
+        sticker.dataset.tone = s.tone;
+        sticker.textContent = s.label;
+        sticker.id = `sticker-${s.id}`;
         sticker.addEventListener('touchstart', startStickerDrag, { passive: false });
         stickerOptionsContainer.appendChild(sticker);
     });
@@ -338,11 +346,17 @@ function setupStickerOptions() {
 function startStickerDrag(event) {
     if (!stickersReady || stickerPlaced) return;
 
-    currentStickerId = event.currentTarget.id;
-    stickerGhost = event.currentTarget.cloneNode(true);
+    const el = event.currentTarget;
+    // guardar id y tone reales para enviar luego
+    currentSticker = {
+        stickerId: el.dataset.stickerId,
+        tone: el.dataset.tone
+    };
+
+    stickerGhost = el.cloneNode(true);
     stickerGhost.style.position = 'absolute';
-    stickerGhost.style.width = `${event.currentTarget.offsetWidth}px`;
-    stickerGhost.style.height = `${event.currentTarget.offsetHeight}px`;
+    stickerGhost.style.width = `${el.offsetWidth}px`;
+    stickerGhost.style.height = `${el.offsetHeight}px`;
     stickerGhost.style.pointerEvents = 'none';
     stickerGhost.style.opacity = '0.8';
     stickerGhost.style.zIndex = '999';
@@ -380,9 +394,10 @@ function dropStickerGhost() {
         const xRelative = (ghostRect.left + ghostRect.width / 2 - photoRect.left) / photoRect.width;
         const yRelative = (ghostRect.top + ghostRect.height / 2 - photoRect.top) / photoRect.height;
 
+        // usar currentSticker.stickerId (no el id DOM)
         socket.emit('sticker_enviado', {
-            stickerId: currentStickerId,
-            tone: document.getElementById(currentStickerId)?.dataset.tone,
+            stickerId: currentSticker?.stickerId || null,
+            tone: currentSticker?.tone || null,
             x: xRelative,
             y: yRelative
         });
@@ -393,9 +408,11 @@ function dropStickerGhost() {
         });
     }
 
-    document.body.removeChild(stickerGhost);
+    if (stickerGhost && stickerGhost.parentNode) {
+        document.body.removeChild(stickerGhost);
+    }
     stickerGhost = null;
-    currentStickerId = null;
+    currentSticker = null;
 }
 
 function handleMotion(event) {
