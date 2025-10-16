@@ -48,6 +48,15 @@ socket.on('mostrar_foto', () => {
 
 socket.on('selfie_stage_completa', () => {
     statusText.textContent = 'Selfies listas. Cuando veas la señal, captura la foto grupal.';
+    }
+});
+
+socket.on('mostrar_foto', () => {
+    statusText.textContent = 'Foto enviada al visualizador. Activa la maraca en móviles.';
+    if (btnTomarFoto) {
+        btnTomarFoto.disabled = true;
+        btnTomarFoto.textContent = 'Foto enviada';
+    }
 });
 
 socket.on('mostrar_foto_final', () => {

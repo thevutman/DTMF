@@ -23,6 +23,17 @@ let motionPermissionGranted =
     typeof DeviceMotionEvent === 'undefined' || typeof DeviceMotionEvent.requestPermission !== 'function';
 let selfieStatusEl = null;
 let selfiePreviewImg = null;
+let estadoActual = 0; // 0: esperando, 1: intro DTMF, 2: petardos, 3: foto/maraca
+let maracaActivated = false;
+let petardosActivated = false;
+
+let lastSensorDispatch = 0;
+let lastIntroPulse = 0;
+
+let maracaSound;
+let osc;
+let audioPrimed = false;
+let meterFill;
 
 function preload() {
     soundFormats('mp3');
@@ -65,6 +76,18 @@ function setup() {
 
     socket.on('habilitar_foto', () => {
         if (estadoActual === 4) {
+        requestSensorPermission();
+    });
+
+    socket.on('cambiar_a_escena_3', () => {
+        estadoActual = 3;
+        maracaActivated = false;
+        petardosActivated = false;
+        renderSceneThreeWaiting();
+    });
+
+    socket.on('habilitar_foto', () => {
+        if (estadoActual === 3) {
             const status = document.getElementById('status-message');
             if (status) {
                 status.textContent = '¡Sonríe y mantente listo!';
@@ -74,6 +97,7 @@ function setup() {
 
     socket.on('mostrar_foto', () => {
         if (estadoActual === 4) {
+        if (estadoActual === 3) {
             const status = document.getElementById('status-message');
             if (status) {
                 status.textContent = 'Siente el ritmo. ¡Maraca lista!';
@@ -111,6 +135,10 @@ function setup() {
             selfieStatusEl.textContent = enviados > 0
                 ? `Selfies en pantalla: ${enviados}. ¡Gracias por compartir!`
                 : 'Aún no hay selfies. Súmate tocando el botón.';
+        if (estadoActual === 3) {
+            maracaActivated = true;
+            renderMaracaMode();
+            requestSensorPermission();
         }
     });
 
@@ -304,6 +332,85 @@ function requestSensorPermission() {
     return Promise.resolve(true);
 }
 
+function renderWaiting() {
+    mainContainer.innerHTML = `
+        <div class="fade">
+            <div class="status-pill">Esperando señal</div>
+            <h1>Team Vibras</h1>
+            <p>Sigue conectado. El staff lanzará la primera escena muy pronto.</p>
+            <p class="small-text">Mantén tu volumen activo y desactiva el bloqueo de rotación.</p>
+        </div>
+    `;
+}
+
+function renderSceneOne() {
+    mainContainer.innerHTML = `
+        <div class="fade">
+            <div class="status-pill">Escena 1 · Pulso DTMF</div>
+            <h1>Golpea el ritmo</h1>
+            <p>Toca el botón cada vez que Bad Bunny grite. Tus pulsos pintan la pantalla gigante.</p>
+            <button id="btn-pulse" class="action-button">Enviar pulso</button>
+            <p class="small-text">Tip: siente el beat y no lo hagas más de una vez por beat.</p>
+        </div>
+    `;
+
+    const pulseButton = document.getElementById('btn-pulse');
+    if (pulseButton) {
+        pulseButton.addEventListener('click', sendIntroPulse);
+    }
+}
+
+function renderSceneTwo() {
+    mainContainer.innerHTML = `
+        <div class="fade">
+            <div class="status-pill">Escena 2 · Fuegos</div>
+            <h1>Levanta el teléfono</h1>
+            <p>Cuando escuches los disparos de DTMF, lanza chispas levantando el móvil como si fuera una bengala.</p>
+            <p class="small-text">Cada sacudida fuerte manda fuego al visualizador.</p>
+        </div>
+    `;
+}
+
+function renderSceneThreeWaiting() {
+    mainContainer.innerHTML = `
+        <div class="fade">
+            <div class="status-pill">Escena 3 · Foto Tribu</div>
+            <h1>Conecta la energía</h1>
+            <p id="status-message">Espera la señal del staff para la foto final.</p>
+            <p class="small-text">Cuando veas la foto en pantalla, agita al ritmo para iluminarla.</p>
+        </div>
+    `;
+}
+
+function renderMaracaMode() {
+    mainContainer.innerHTML = `
+        <div class="fade">
+            <div class="status-pill">Maraca activada</div>
+            <h1>Agita para brillar</h1>
+            <p>Agita tu móvil como maraca cuando suene el coro. Cada movimiento enciende la foto de la tribu.</p>
+            <div class="maraca-meter"><span id="meter-fill"></span></div>
+            <p class="small-text">Si no reacciona, revisa que el bloqueo de orientación esté desactivado.</p>
+        </div>
+    `;
+    meterFill = document.getElementById('meter-fill');
+}
+
+function renderClosing() {
+    mainContainer.innerHTML = `
+        <div class="fade">
+            <div class="status-pill">Gracias Tribu</div>
+            <h1>Escena final</h1>
+            <p>La foto quedó brutal. Guarda tu energía para el encore.</p>
+        </div>
+    `;
+}
+
+function requestSensorPermission() {
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().catch(() => { /* Ignorar si el usuario cancela */ });
+    }
+}
+
 function sendIntroPulse() {
     const now = Date.now();
     if (now - lastIntroPulse < INTRO_THROTTLE) {
@@ -401,6 +508,7 @@ function handleMotion(event) {
         return;
     }
 
+function handleMotion(event) {
     const acceleration = event.accelerationIncludingGravity;
     if (!acceleration) return;
 
@@ -422,6 +530,7 @@ function handleMotion(event) {
             intensity: magnitude
         });
     } else if (estadoActual === 4 && maracaActivated && magnitude > MARACA_THRESHOLD) {
+    } else if (estadoActual === 3 && maracaActivated && magnitude > MARACA_THRESHOLD) {
         lastSensorDispatch = now;
         if (maracaSound && audioPrimed) {
             maracaSound.play();

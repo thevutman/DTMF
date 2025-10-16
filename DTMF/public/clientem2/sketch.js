@@ -66,6 +66,41 @@ if (selfieButton && selfieInput) {
     });
 }
 
+
+const FIREWORK_THRESHOLD = 28;
+const SENSOR_THROTTLE = 120;
+const INTRO_THROTTLE = 300;
+
+let estadoActual = 0; // 0: espera, 1: intro, 2: petardos, 3: stickers, 4: final
+let petardosActivated = false;
+let stickersReady = false;
+let stickerPlaced = false;
+
+let lastSensorDispatch = 0;
+let lastIntroPulse = 0;
+
+let stickerGhost = null;
+let currentStickerId = null;
+
+const waitingState = document.getElementById('waiting-state');
+const sceneOne = document.getElementById('scene-one');
+const sceneTwo = document.getElementById('scene-two');
+const sceneThree = document.getElementById('scene-three');
+const sceneFinal = document.getElementById('scene-final');
+const pulseButton = document.getElementById('btn-pulse');
+const photoArea = document.getElementById('photo-area');
+const photoImg = document.getElementById('photo');
+const stickerOptionsContainer = document.getElementById('sticker-options');
+const sceneThreeMessage = document.getElementById('scene-three-message');
+
+window.addEventListener('devicemotion', handleMotion, { passive: true });
+window.addEventListener('touchmove', followStickerGhost, { passive: false });
+window.addEventListener('touchend', dropStickerGhost);
+
+if (pulseButton) {
+    pulseButton.addEventListener('click', sendIntroPulse);
+}
+
 socket.on('escena_1_intro', () => {
     estadoActual = 1;
     petardosActivated = false;
@@ -84,6 +119,10 @@ socket.on('activar_estado_2_moviles', () => {
 });
 
 socket.on('iniciar_collage_selfies', () => {
+    requestSensorPermission();
+});
+
+socket.on('cambiar_a_escena_3', () => {
     estadoActual = 3;
     petardosActivated = false;
     stickersReady = false;
@@ -146,6 +185,14 @@ socket.on('cambiar_a_escena_3', () => {
 socket.on('habilitar_foto', () => {
     if (estadoActual === 4 && sceneThreeMessage) {
         sceneThreeMessage.textContent = '¡Foto en camino! Ten listos tus stickers.';
+    sceneThreeMessage.textContent = 'Espera al staff. La foto viene en camino.';
+    photoImg.src = '';
+    showScene(sceneThree);
+});
+
+socket.on('habilitar_foto', () => {
+    if (estadoActual === 3) {
+        sceneThreeMessage.textContent = '¡Sonríe! La foto se toma en segundos.';
     }
 });
 
@@ -157,6 +204,9 @@ socket.on('mostrar_foto', (imageData) => {
     if (sceneThreeMessage) {
         sceneThreeMessage.textContent = 'Arrastra un sticker y colócalo donde más brille.';
     }
+    estadoActual = 3;
+    photoImg.src = imageData;
+    sceneThreeMessage.textContent = 'Arrastra un sticker y colócalo donde más brille.';
     stickerPlaced = false;
     setupStickerOptions();
     showScene(sceneThree);
@@ -164,6 +214,7 @@ socket.on('mostrar_foto', (imageData) => {
 
 socket.on('mostrar_foto_final', (data) => {
     estadoActual = 5;
+    estadoActual = 4;
     petardosActivated = false;
     stickersReady = false;
     stickerPlaced = true;
@@ -186,10 +237,23 @@ socket.on('mostrar_foto_final', (data) => {
 
 function showScene(sceneToShow) {
     [waitingState, sceneOne, sceneTwo, sceneSelfie, sceneThree, sceneFinal].forEach(section => {
+    [waitingState, sceneOne, sceneTwo, sceneThree, sceneFinal].forEach(section => {
         if (!section) return;
         section.hidden = section !== sceneToShow;
     });
 }
+
+function sendIntroPulse() {
+    const now = Date.now();
+    if (now - lastIntroPulse < INTRO_THROTTLE) {
+        return;
+    }
+    lastIntroPulse = now;
+
+    const tones = ['D', 'T', 'M', 'F'];
+    const tone = tones[Math.floor(Math.random() * tones.length)];
+    const intensity = 0.6 + Math.random() * 0.8;
+
 
 function sendIntroPulse() {
     const now = Date.now();
@@ -389,6 +453,54 @@ function handleMotion(event) {
         return;
     }
 
+}
+
+function followStickerGhost(event) {
+    if (!stickerGhost) return;
+    const touch = event.touches[0];
+    moveGhost(touch.clientX, touch.clientY);
+    event.preventDefault();
+}
+
+function moveGhost(x, y) {
+    stickerGhost.style.left = `${x - stickerGhost.offsetWidth / 2}px`;
+    stickerGhost.style.top = `${y - stickerGhost.offsetHeight / 2}px`;
+}
+
+function dropStickerGhost() {
+    if (!stickerGhost || !photoArea || !stickersReady) return;
+
+    const ghostRect = stickerGhost.getBoundingClientRect();
+    const photoRect = photoArea.getBoundingClientRect();
+
+    if (
+        ghostRect.left > photoRect.left &&
+        ghostRect.right < photoRect.right &&
+        ghostRect.top > photoRect.top &&
+        ghostRect.bottom < photoRect.bottom
+    ) {
+        const xRelative = (ghostRect.left + ghostRect.width / 2 - photoRect.left) / photoRect.width;
+        const yRelative = (ghostRect.top + ghostRect.height / 2 - photoRect.top) / photoRect.height;
+
+        socket.emit('sticker_enviado', {
+            stickerId: currentStickerId,
+            tone: document.getElementById(currentStickerId)?.dataset.tone,
+            x: xRelative,
+            y: yRelative
+        });
+
+        stickerPlaced = true;
+        Array.from(stickerOptionsContainer.children).forEach(node => {
+            node.style.opacity = '0.35';
+        });
+    }
+
+    document.body.removeChild(stickerGhost);
+    stickerGhost = null;
+    currentStickerId = null;
+}
+
+function handleMotion(event) {
     if (estadoActual !== 2 || !petardosActivated) return;
 
     const acceleration = event.accelerationIncludingGravity;
@@ -411,5 +523,11 @@ function handleMotion(event) {
             mobileId: MOBILE_ID,
             intensity: magnitude
         });
+    }
+}
+
+function requestSensorPermission() {
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().catch(() => {});
     }
 }

@@ -16,6 +16,7 @@
         const socket = io();
 
         let estadoActual = 0; // 0 intro, 1 reunir, 2 foto, 3 final, 4 fuegos, 5 collage
+        let estadoActual = 0; // 0 intro, 1 reunir, 2 foto, 3 final, 4 fuegos
         let fotoMostrada = null;
         let stickers = [];
         let shakeMagnitude = 0;
@@ -80,6 +81,23 @@
                 drawSelfieCompleteOverlay();
                 selfieCompleteBanner--;
             }
+        }
+
+        function drawIntroScene() {
+            pulsePhase += 0.004;
+            noStroke();
+            for (let i = 0; i < height; i += 6) {
+                const alpha = map(Math.sin(pulsePhase * 3 + i * 0.008), -1, 1, 20, 80);
+                fill(10, 12, 40, alpha);
+                rect(0, i, width, 6);
+            }
+
+            stroke(255, 32);
+            for (let i = 0; i <= 10; i++) {
+                const offset = Math.sin(pulsePhase * 6 + i * 0.4) * 60;
+                line((width / 10) * i + offset, 0, (width / 10) * i - offset, height);
+            }
+
         }
 
         function drawIntroScene() {
@@ -191,6 +209,11 @@
             for (let i = fireworks.length - 1; i >= 0; i--) {
                 if (!fireworks[i].exploded) {
                     fireworks[i].applyForce(gravity);
+                }
+                fireworks[i].update();
+                fireworks[i].show();
+                if (fireworks[i].isFinished()) {
+                    fireworks.splice(i, 1);
                 }
                 fireworks[i].update();
                 fireworks[i].show();

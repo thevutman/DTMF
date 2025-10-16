@@ -23,6 +23,8 @@ btnEstado2.addEventListener('click', () => {
 btnEstado3.addEventListener('click', () => {
     console.log('Remoto: Activando collage de selfies.');
     socket.emit('activar_collage_selfies');
+    console.log('Remoto: Activando escena 3 (foto).');
+    socket.emit('activar_estado_3');
 });
 
 btnFoto.addEventListener('click', () => {
