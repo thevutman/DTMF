@@ -262,7 +262,7 @@
             }
 
             stickers.forEach(sticker => {
-                const stickerImg = stickerImages['base'];
+                const stickerImg = stickerImages[sticker.stickerId] || stickerImages['base'];
                 if (!stickerImg) return;
                 const sx = sticker.x * width;
                 const sy = sticker.y * height;
@@ -270,6 +270,7 @@
                 push();
                 imageMode(CENTER);
                 tint(red(toneColor), green(toneColor), blue(toneColor), 240);
+                // ajustar tamaño según constante
                 image(stickerImg, sx, sy, STICKER_SIZE, STICKER_SIZE);
                 noTint();
                 pop();
