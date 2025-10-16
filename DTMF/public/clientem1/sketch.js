@@ -19,6 +19,16 @@ let osc;
 let audioPrimed = false;
 let meterFill;
 
+let motionPermissionGranted =
+    typeof DeviceMotionEvent === 'undefined' || typeof DeviceMotionEvent.requestPermission !== 'function';
+let selfieStatusEl = null;
+let selfiePreviewImg = null;
+
+// --- nuevas variables para controlar loop/stop de la maraca ---
+let maracaLooping = false;
+let shakeStopTimer = null;
+const SHAKE_STOP_DELAY = 600; // ms: tiempo sin agitar para pausar la maraca
+
 function preload() {
     soundFormats('mp3');
     maracaSound = loadSound('../assets/sonido/maracas.mp3');
@@ -27,7 +37,10 @@ function preload() {
 function setup() {
     noCanvas();
     renderWaiting();
-    window.addEventListener('touchstart', primeAudio, { passive: true });
+    // touchstart debe ser non-passive para que iOS considere la interacción válida para desbloquear audio
+    window.addEventListener('touchstart', primeAudio, { passive: false });
+    // click como fallback (Android/desktop)
+    window.addEventListener('click', primeAudio, { passive: false });
     window.addEventListener('devicemotion', handleMotion, { passive: true });
 
     socket.on('escena_1_intro', () => {
@@ -96,6 +109,32 @@ function primeAudio() {
     } else {
         audioPrimed = true;
     }
+
+    // Intentar reproducir un fragmento muy corto y con volumen bajo para primar el audio en iOS
+    try {
+        if (maracaSound && typeof maracaSound.isLoaded === 'function' && maracaSound.isLoaded()) {
+            // play(startTime, rate, amp, cueStart, duration)
+            // volumen muy bajo y duración corta (50ms)
+            maracaSound.setVolume(0.02);
+            maracaSound.play(0, 1, 0.02, 0, 0.05);
+        }
+    } catch (e) {
+        console.warn('primeAudio: no se pudo reproducir clip corto', e);
+    }
+
+    // Solicitar permiso de movimiento en iOS dentro del gesto de usuario
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().then(response => {
+            // response === 'granted' en iOS cuando el usuario acepta
+            motionPermissionGranted = response === 'granted';
+            // opcional: actualizar UI si necesitas
+        }).catch(() => {
+            motionPermissionGranted = false;
+        });
+    } else {
+        // navegadores que no requieren permiso explícito
+        motionPermissionGranted = true;
+    }
 }
 
 function renderWaiting() {
@@ -149,6 +188,7 @@ function renderSceneThreeWaiting() {
 }
 
 function renderMaracaMode() {
+    console.log(maracaSound, audioPrimed);
     mainContainer.innerHTML = `
         <div class="fade">
             <div class="status-pill">Maraca activada</div>
@@ -161,7 +201,49 @@ function renderMaracaMode() {
     meterFill = document.getElementById('meter-fill');
 }
 
+function playMaraca() {
+    // ahora inicia la maraca en loop para sonar mientras se agita
+    if (maracaSound && audioPrimed) {
+        try {
+            if (!maracaLooping) {
+                maracaSound.setLoop(true);
+                maracaSound.setVolume(1);
+                maracaSound.loop();
+                maracaLooping = true;
+            }
+            // reset temporizador de parada si se usa el botón como prueba
+            if (shakeStopTimer) clearTimeout(shakeStopTimer);
+            shakeStopTimer = setTimeout(() => {
+                stopMaracaLoop();
+            }, SHAKE_STOP_DELAY);
+        } catch (e) {
+            console.warn('playMaraca error:', e);
+        }
+    }
+}
+
+// helper para parar la maraca en loop
+function stopMaracaLoop() {
+    try {
+        if (maracaSound && maracaLooping) {
+            // usar pause() para mantener posición o stop() para reiniciar
+            maracaSound.pause();
+        }
+    } catch (e) {
+        console.warn('stopMaracaLoop error:', e);
+    } finally {
+        maracaLooping = false;
+        if (shakeStopTimer) {
+            clearTimeout(shakeStopTimer);
+            shakeStopTimer = null;
+        }
+    }
+}
+
 function renderClosing() {
+    // detener maraca si se estaba reproduciendo
+    stopMaracaLoop();
+
     mainContainer.innerHTML = `
         <div class="fade">
             <div class="status-pill">Gracias Tribu</div>
@@ -206,6 +288,9 @@ function sendIntroPulse() {
 }
 
 function handleMotion(event) {
+    if (!motionPermissionGranted && typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        return;
+    }
     const acceleration = event.accelerationIncludingGravity;
     if (!acceleration) return;
 
@@ -228,8 +313,25 @@ function handleMotion(event) {
         });
     } else if (estadoActual === 3 && maracaActivated && magnitude > MARACA_THRESHOLD) {
         lastSensorDispatch = now;
-        if (maracaSound && audioPrimed) {
-            maracaSound.play();
+        console.log('maraca trigger', { audioPrimed, maracaLoaded: maracaSound && maracaSound.isLoaded && maracaSound.isLoaded() });
+
+        // iniciar loop si no está sonando; reiniciar temporizador de parada en cada agitación
+        if (maracaSound && audioPrimed && typeof maracaSound.isLoaded === 'function' && maracaSound.isLoaded()) {
+            try {
+                if (!maracaLooping) {
+                    maracaSound.setLoop(true);
+                    maracaSound.setVolume(1);
+                    maracaSound.loop();
+                    maracaLooping = true;
+                }
+                // resetear temporizador para pausar después de no-agitar
+                if (shakeStopTimer) clearTimeout(shakeStopTimer);
+                shakeStopTimer = setTimeout(() => {
+                    stopMaracaLoop();
+                }, SHAKE_STOP_DELAY);
+            } catch (e) {
+                console.warn('Error reproduciendo maraca en trigger:', e);
+            }
         }
         if (meterFill) {
             const percent = Math.min(100, Math.floor((magnitude / 40) * 100));

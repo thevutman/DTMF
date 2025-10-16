@@ -22,6 +22,8 @@ const sceneTwo = document.getElementById('scene-two');
 const sceneThree = document.getElementById('scene-three');
 const sceneFinal = document.getElementById('scene-final');
 const pulseButton = document.getElementById('btn-pulse');
+const motionButton = document.getElementById('btn-enable-motion');
+const motionStatus = document.getElementById('motion-status');
 const photoArea = document.getElementById('photo-area');
 const photoImg = document.getElementById('photo');
 const stickerOptionsContainer = document.getElementById('sticker-options');
@@ -33,6 +35,15 @@ window.addEventListener('touchend', dropStickerGhost);
 
 if (pulseButton) {
     pulseButton.addEventListener('click', sendIntroPulse);
+}
+
+if (motionButton) {
+    motionButton.addEventListener('click', () => {
+        requestSensorPermission().then((granted) => {
+            motionPermissionGranted = granted;
+            updateMotionPrompt();
+        });
+    });
 }
 
 socket.on('escena_1_intro', () => {
@@ -234,5 +245,16 @@ function handleMotion(event) {
 function requestSensorPermission() {
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission().catch(() => {});
+    }
+}
+
+function updateMotionPrompt() {
+    if (!motionButton || !motionStatus) return;
+    if (motionPermissionGranted) {
+        motionButton.classList.add('hidden');
+        motionStatus.textContent = 'Sensores activos. Sacude fuerte para lanzar destellos.';
+    } else {
+        motionButton.classList.remove('hidden');
+        motionStatus.textContent = 'Si usas iPhone toca el botón para permitir el sensor de movimiento.';
     }
 }
