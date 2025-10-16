@@ -15,16 +15,26 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 let fotoActual = null; // Variable para almacenar la foto tomada
 let stickers = []; // Array para almacenar los stickers y sus posiciones
+let selfies = []; // Collage de selfies enviados por los móviles
 
 io.on('connection', (socket) => {
     console.log(`Usuario conectado: ${socket.id}`);
 
+    // Manejar el evento para activar la Escena 1 (intro DTMF)
+    socket.on('activar_escena_1', () => {
+        console.log('Escena 1 iniciada desde el remoto.');
+        fotoActual = null;
+        stickers = [];
+        selfies = [];
+        io.emit('escena_1_intro');
+    });
+
     // Manejar el evento para activar el Estado 3 (del cliente Remote)
-    socket.on('activar_estado_3', () => {
-        console.log('Señal de activación del Estado 3 recibida del Remoto.');
-        // Emitir a todos los clientes para que cambien de escena
-        io.emit('cambiar_a_escena_3');
-        // El visualizador recibe esta señal y muestra "Junten todos para la foto"
+    socket.on('activar_collage_selfies', () => {
+        console.log('Remoto: iniciar collage de selfies.');
+        selfies = [];
+        io.emit('iniciar_collage_selfies');
+        io.emit('selfies_actualizadas', selfies);
     });
 
     // Manejar el evento para habilitar el botón de la foto (del cliente Remote)
@@ -33,6 +43,7 @@ io.on('connection', (socket) => {
         // Emitir un evento específico al cliente Desktop
         io.emit('habilitar_foto');
         io.emit('mostrar_gif_sonrie');
+        io.emit('cambiar_a_escena_3');
     });
 
     // Manejar la foto enviada por el Cliente Desktop
@@ -43,10 +54,16 @@ io.on('connection', (socket) => {
 
         // Enviar la foto al Visualizador y al Mobile B
         io.emit('mostrar_foto', fotoActual);
+        io.emit('selfie_stage_completa');
 
         // Enviar una señal específica a Mobile A para que active la maraca
         io.emit('activar_maraca');
         console.log('Enviando señal para activar la maraca.');
+    });
+
+    // Pulsos de la escena 1 enviados por los móviles
+    socket.on('pulso_dtmf', (payload) => {
+        io.emit('pulso_dtmf_visual', payload);
     });
 
     // Manejar los datos de la maraca del Cliente Mobile A
@@ -94,7 +111,7 @@ io.on('connection', (socket) => {
         console.log('--- SERVIDOR: INICIANDO ESTADO 2 (PETARDOS) ---');
         
         // 1. Activa los sensores en TODOS los móviles (Mobile A y Mobile B)
-        io.emit('activar_estado_2_moviles'); 
+        io.emit('activar_estado_2_moviles');
         
         // 2. Cambia el Visualizador al ESTADO 4 para dibujar los fuegos artificiales
         io.emit('cambiar_a_escena_4'); // <-- ¡AJUSTE REALIZADO!
@@ -109,6 +126,20 @@ io.on('connection', (socket) => {
             mobileId: data.mobileId,
             intensity: data.intensity
         });
+    });
+
+    socket.on('selfie_enviada', (data) => {
+        if (!data || !data.image) return;
+
+        console.log(`Selfie recibida de ${data.mobileId || 'mobile'} (${selfies.length + 1}).`);
+        selfies = selfies.filter(entry => entry.mobileId !== data.mobileId);
+        selfies.push({
+            mobileId: data.mobileId,
+            image: data.image
+        });
+
+        socket.emit('selfie_confirmada');
+        io.emit('selfies_actualizadas', selfies);
     });
 });
 

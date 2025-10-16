@@ -1,57 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Cliente Desktop - Tomar Foto</title>
+    <title>Cliente Desktop · Staff DTMF</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #f0f0f0;
-            margin: 0;
-            text-align: center;
-        }
-        #state-3-container {
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-        #video-container {
-            width: 80%;
-            max-width: 800px;
-            height: auto;
-            border: 2px solid #ccc;
-            position: relative;
-        }
-        #btn-tomar-foto {
-            margin-top: 20px;
-            padding: 15px 30px;
-            font-size: 1.2em;
-            cursor: pointer;
-            border: none;
-            border-radius: 5px;
-            color: white;
-            background-color: #333;
-            transition: background-color 0.3s;
-        }
-        #btn-tomar-foto:disabled {
-            background-color: #999;
-            cursor: not-allowed;
-        }
-        h1 {
-            color: #333;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="state-3-container"></div>
+    <main id="staff-wrapper">
+        <section id="status-panel">
+            <h1>Staff Control</h1>
+            <p id="status-text">Esperando instrucción del remoto…</p>
+        </section>
+        <section id="state-3-container"></section>
+    </main>
 
     <script src="sketch.js"></script>
 </body>
