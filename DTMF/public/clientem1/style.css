@@ -69,6 +69,15 @@ body {
     box-shadow: 0 6px 16px rgba(241, 91, 181, 0.45);
 }
 
+.sun-button {
+    background: linear-gradient(120deg, #ffb347, #ff5f45);
+    box-shadow: 0 16px 36px rgba(255, 149, 69, 0.4);
+}
+
+.sun-button:active {
+    box-shadow: 0 8px 18px rgba(255, 149, 69, 0.45);
+}
+
 .status-pill {
     display: inline-flex;
     align-items: center;

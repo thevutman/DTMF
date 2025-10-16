@@ -170,6 +170,20 @@ p {
     transform: scale(0.97);
 }
 
+.moon-button {
+    background: linear-gradient(120deg, #6c5ce7, #3b82f6);
+    box-shadow: 0 16px 40px rgba(88, 108, 255, 0.42);
+}
+
+.moon-button:active {
+    box-shadow: 0 10px 22px rgba(88, 108, 255, 0.5);
+}
+
+.sunset-phase {
+    animation: fadeIn 0.4s ease;
+    margin-top: 12px;
+}
+
 .fade {
     animation: fadeIn 0.4s ease;
 }

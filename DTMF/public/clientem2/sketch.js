@@ -3,25 +3,26 @@ const MOBILE_ID = 'mobile_b';
 
 const FIREWORK_THRESHOLD = 28;
 const SENSOR_THROTTLE = 120;
-const INTRO_THROTTLE = 300;
 
 let estadoActual = 0; // 0: espera, 1: intro, 2: petardos, 3: stickers, 4: final
 let petardosActivated = false;
 let stickersReady = false;
 let stickerPlaced = false;
+let sunsetInteractionActive = false;
 
 let lastSensorDispatch = 0;
-let lastIntroPulse = 0;
 
 let stickerGhost = null;
 let currentStickerId = null;
 
 const waitingState = document.getElementById('waiting-state');
 const sceneOne = document.getElementById('scene-one');
+const sceneOnePhaseOne = document.getElementById('scene-one-phase-1');
+const sceneOnePhaseTwo = document.getElementById('scene-one-phase-2');
 const sceneTwo = document.getElementById('scene-two');
 const sceneThree = document.getElementById('scene-three');
 const sceneFinal = document.getElementById('scene-final');
-const pulseButton = document.getElementById('btn-pulse');
+const moonButton = document.getElementById('btn-moon');
 const motionButton = document.getElementById('btn-enable-motion');
 const motionStatus = document.getElementById('motion-status');
 const photoArea = document.getElementById('photo-area');
@@ -33,8 +34,12 @@ window.addEventListener('devicemotion', handleMotion, { passive: true });
 window.addEventListener('touchmove', followStickerGhost, { passive: false });
 window.addEventListener('touchend', dropStickerGhost);
 
-if (pulseButton) {
-    pulseButton.addEventListener('click', sendIntroPulse);
+if (moonButton) {
+    moonButton.addEventListener('click', () => {
+        if (estadoActual === 1) {
+            socket.emit('cambiar_momento_sunset', 'luna');
+        }
+    });
 }
 
 if (motionButton) {
@@ -51,7 +56,16 @@ socket.on('escena_1_intro', () => {
     petardosActivated = false;
     stickerPlaced = false;
     stickersReady = false;
+    sunsetInteractionActive = false;
+    showMoonPhase(1);
     showScene(sceneOne);
+});
+
+socket.on('activar_interaccion_moviles', () => {
+    if (estadoActual === 1 && !sunsetInteractionActive) {
+        sunsetInteractionActive = true;
+        showMoonPhase(2);
+    }
 });
 
 socket.on('activar_estado_2_moviles', () => {
@@ -59,6 +73,7 @@ socket.on('activar_estado_2_moviles', () => {
     petardosActivated = true;
     stickerPlaced = false;
     stickersReady = false;
+    sunsetInteractionActive = false;
     showScene(sceneTwo);
     requestSensorPermission();
 });
@@ -68,6 +83,7 @@ socket.on('cambiar_a_escena_3', () => {
     petardosActivated = false;
     stickersReady = false;
     stickerPlaced = false;
+    sunsetInteractionActive = false;
     sceneThreeMessage.textContent = 'Espera al staff. La foto viene en camino.';
     photoImg.src = '';
     showScene(sceneThree);
@@ -93,6 +109,7 @@ socket.on('mostrar_foto_final', (data) => {
     petardosActivated = false;
     stickersReady = false;
     stickerPlaced = true;
+    sunsetInteractionActive = false;
     if (data && data.foto) {
         photoImg.src = data.foto;
     }
@@ -117,22 +134,15 @@ function showScene(sceneToShow) {
     });
 }
 
-function sendIntroPulse() {
-    const now = Date.now();
-    if (now - lastIntroPulse < INTRO_THROTTLE) {
-        return;
+function showMoonPhase(phase) {
+    if (!sceneOnePhaseOne || !sceneOnePhaseTwo) return;
+    if (phase === 1) {
+        sceneOnePhaseOne.hidden = false;
+        sceneOnePhaseTwo.hidden = true;
+    } else {
+        sceneOnePhaseOne.hidden = true;
+        sceneOnePhaseTwo.hidden = false;
     }
-    lastIntroPulse = now;
-
-    const tones = ['D', 'T', 'M', 'F'];
-    const tone = tones[Math.floor(Math.random() * tones.length)];
-    const intensity = 0.6 + Math.random() * 0.8;
-
-    socket.emit('pulso_dtmf', {
-        mobileId: MOBILE_ID,
-        tone,
-        intensity
-    });
 }
 
 function setupStickerOptions() {
