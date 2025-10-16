@@ -5,6 +5,7 @@ const MOBILE_ID = 'mobile_a';
 const FIREWORK_THRESHOLD = 28;
 const MARACA_THRESHOLD = 16;
 const SENSOR_THROTTLE = 120;
+const SELFIE_COOLDOWN = 1200;
 
 let estadoActual = 0; // 0: esperando, 1: intro sunset, 2: petardos, 3: foto/maraca
 let maracaActivated = false;
@@ -25,6 +26,16 @@ let maracaLooping = false;
 let shakeStopTimer = null;
 const SHAKE_STOP_DELAY = 600; // ms: tiempo sin agitar para pausar la maraca
 
+// --- variables para el modo selfie del estado 2 ---
+let selfieStream = null;
+let selfieVideoElement = null;
+let selfieCaptureButton = null;
+let selfieStatusLabel = null;
+let selfieCanvas = null;
+let selfieCount = 0;
+let selfieCooldown = false;
+let selfieErrorLabel = null;
+
 function preload() {
     soundFormats('mp3');
     maracaSound = loadSound('../assets/sonido/maracas.mp3');
@@ -44,6 +55,7 @@ function setup() {
         maracaActivated = false;
         petardosActivated = false;
         sunsetInteractionActive = false;
+        stopSelfieMode();
         renderSunsetWelcome();
     });
 
@@ -59,6 +71,7 @@ function setup() {
         maracaActivated = false;
         petardosActivated = true;
         sunsetInteractionActive = false;
+        stopSelfieMode();
         renderSceneTwo();
         requestSensorPermission();
     });
@@ -68,6 +81,7 @@ function setup() {
         maracaActivated = false;
         petardosActivated = false;
         sunsetInteractionActive = false;
+        stopSelfieMode();
         renderSceneThreeWaiting();
     });
 
@@ -102,7 +116,25 @@ function setup() {
         maracaActivated = false;
         petardosActivated = false;
         sunsetInteractionActive = false;
+        stopSelfieMode();
         renderClosing();
+    });
+
+    socket.on('activar_camaras_estado_2', () => {
+        if (estadoActual === 2) {
+            petardosActivated = false;
+            renderSelfieMode();
+        }
+    });
+
+    socket.on('resetear_collage_estado_2', () => {
+        selfieCount = 0;
+        if (estadoActual === 2) {
+            stopSelfieMode();
+            renderSceneTwo();
+        } else {
+            stopSelfieMode();
+        }
     });
 }
 
@@ -196,6 +228,35 @@ function renderSceneTwo() {
     `;
 }
 
+function renderSelfieMode() {
+    mainContainer.innerHTML = `
+        <div class="fade">
+            <div class="status-pill">Escena 2 · Selfie Collage</div>
+            <h1>Activa tu cámara</h1>
+            <p>Toma selfies con tu crew. Cada captura aparece al instante en la pantalla gigante.</p>
+            <div id="selfie-video-wrapper">
+                <video id="selfie-video" playsinline autoplay muted></video>
+            </div>
+            <button id="btn-selfie-capture" class="action-button selfie-button">Enviar selfie</button>
+            <p id="selfie-status" class="small-text">Selfies enviadas: ${selfieCount}</p>
+            <p id="selfie-error" class="small-text" style="display:none;"></p>
+        </div>
+    `;
+
+    selfieVideoElement = document.getElementById('selfie-video');
+    selfieCaptureButton = document.getElementById('btn-selfie-capture');
+    selfieStatusLabel = document.getElementById('selfie-status');
+    selfieErrorLabel = document.getElementById('selfie-error');
+
+    if (selfieCaptureButton) {
+        selfieCaptureButton.addEventListener('click', () => {
+            captureSelfie();
+        });
+    }
+
+    startSelfieStream();
+}
+
 function renderSceneThreeWaiting() {
     mainContainer.innerHTML = `
         <div class="fade">
@@ -277,6 +338,110 @@ function requestSensorPermission() {
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission().catch(() => { /* Ignorar si el usuario cancela */ });
     }
+}
+
+function startSelfieStream() {
+    if (!selfieVideoElement) return;
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showSelfieError('Tu navegador no permite activar la cámara.');
+        return;
+    }
+
+    navigator.mediaDevices.getUserMedia({
+        video: {
+            facingMode: 'user'
+        },
+        audio: false
+    }).then(stream => {
+        selfieStream = stream;
+        selfieVideoElement.srcObject = stream;
+        selfieVideoElement.setAttribute('playsinline', 'true');
+        selfieVideoElement.muted = true;
+        return selfieVideoElement.play();
+    }).catch(() => {
+        showSelfieError('Activa permisos de cámara para enviar tu selfie.');
+    });
+}
+
+function captureSelfie() {
+    if (!selfieVideoElement || !selfieStream || selfieCooldown) {
+        return;
+    }
+
+    const width = selfieVideoElement.videoWidth;
+    const height = selfieVideoElement.videoHeight;
+
+    if (!width || !height) {
+        showSelfieError('Esperando que la cámara inicie…');
+        return;
+    }
+
+    if (!selfieCanvas) {
+        selfieCanvas = document.createElement('canvas');
+    }
+
+    selfieCanvas.width = width;
+    selfieCanvas.height = height;
+
+    const ctx = selfieCanvas.getContext('2d');
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(selfieVideoElement, -width, 0, width, height);
+    ctx.restore();
+
+    const imageData = selfieCanvas.toDataURL('image/jpeg', 0.9);
+    selfieCount += 1;
+    updateSelfieStatus();
+
+    socket.emit('selfie_estado_2_tomada', {
+        mobileId: MOBILE_ID,
+        imageData,
+        timestamp: Date.now()
+    });
+
+    if (selfieCaptureButton) {
+        selfieCaptureButton.disabled = true;
+    }
+    selfieCooldown = true;
+    setTimeout(() => {
+        selfieCooldown = false;
+        if (selfieCaptureButton) {
+            selfieCaptureButton.disabled = false;
+        }
+    }, SELFIE_COOLDOWN);
+}
+
+function updateSelfieStatus() {
+    if (selfieStatusLabel) {
+        selfieStatusLabel.textContent = `Selfies enviadas: ${selfieCount}`;
+    }
+    if (selfieErrorLabel) {
+        selfieErrorLabel.style.display = 'none';
+    }
+}
+
+function showSelfieError(message) {
+    if (selfieErrorLabel) {
+        selfieErrorLabel.textContent = message;
+        selfieErrorLabel.style.display = 'block';
+    }
+}
+
+function stopSelfieMode() {
+    if (selfieStream) {
+        selfieStream.getTracks().forEach(track => track.stop());
+        selfieStream = null;
+    }
+    if (selfieVideoElement) {
+        selfieVideoElement.srcObject = null;
+    }
+    selfieVideoElement = null;
+    selfieCaptureButton = null;
+    selfieStatusLabel = null;
+    selfieErrorLabel = null;
+    selfieCanvas = null;
+    selfieCooldown = false;
 }
 
 function handleMotion(event) {
