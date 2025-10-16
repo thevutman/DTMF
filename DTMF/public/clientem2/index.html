@@ -31,10 +31,22 @@
 
         <section id="scene-two" class="scene" hidden>
             <div class="status-pill">Escena 2 · Fuegos</div>
-            <h1>Sacude hacia el cielo</h1>
-            <button id="btn-enable-motion" class="action-button secondary">Habilitar sensores</button>
-            <p id="motion-status" class="small-text">Si usas iPhone toca el botón para permitir el sensor de movimiento.</p>
-            <p>Cada sacudida dispara fuegos digitales. Levanta el móvil como si grabaras el momento.</p>
+            <div id="firework-instructions">
+                <h1>Sacude hacia el cielo</h1>
+                <button id="btn-enable-motion" class="action-button secondary">Habilitar sensores</button>
+                <p id="motion-status" class="small-text">Si usas iPhone toca el botón para permitir el sensor de movimiento.</p>
+                <p>Cada sacudida dispara fuegos digitales. Levanta el móvil como si grabaras el momento.</p>
+            </div>
+            <div id="selfie-wrapper" hidden>
+                <h1>Selfie Collage</h1>
+                <p class="small-text">Envia varias selfies, aparecerán en el visualizador en vivo.</p>
+                <div id="selfie-video-frame">
+                    <video id="selfie-video" playsinline autoplay muted></video>
+                </div>
+                <button id="btn-selfie" class="action-button selfie">Enviar selfie</button>
+                <p id="selfie-status" class="small-text">Selfies enviadas: 0</p>
+                <p id="selfie-error" class="small-text" hidden></p>
+            </div>
         </section>
 
         <section id="scene-three" class="scene" hidden>

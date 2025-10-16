@@ -50,6 +50,7 @@ body {
     line-height: 1.45;
 }
 
+.panel,
 #state-3-container {
     background: rgba(10, 10, 25, 0.8);
     border-radius: 28px;
@@ -61,6 +62,10 @@ body {
     align-items: center;
     justify-content: center;
     gap: 16px;
+}
+
+#state-2-container {
+    min-height: 220px;
 }
 
 #video-container {
@@ -95,6 +100,25 @@ body {
 }
 
 #btn-tomar-foto:not(:disabled):active {
+    transform: scale(0.97);
+}
+
+.secondary-button {
+    padding: 16px 26px;
+    border-radius: 999px;
+    border: none;
+    background: rgba(0, 187, 249, 0.18);
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 12px 28px rgba(0, 187, 249, 0.25);
+}
+
+.secondary-button:active {
     transform: scale(0.97);
 }
 

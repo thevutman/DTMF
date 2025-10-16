@@ -15,6 +15,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 let fotoActual = null; // Variable para almacenar la foto tomada
 let stickers = []; // Array para almacenar los stickers y sus posiciones
+let collageSelfies = []; // Selfies del estado 2 para el collage en vivo
 
 io.on('connection', (socket) => {
     console.log(`Usuario conectado: ${socket.id}`);
@@ -24,6 +25,7 @@ io.on('connection', (socket) => {
         console.log('Escena 1 iniciada desde el remoto.');
         fotoActual = null;
         stickers = [];
+        collageSelfies = [];
         io.emit('escena_1_intro');
     });
 
@@ -116,12 +118,16 @@ io.on('connection', (socket) => {
     // 1. MANEJADOR PARA INICIAR EL ESTADO 2 (Recibido desde el Remoto)
     socket.on('iniciar_estado_2', () => {
         console.log('--- SERVIDOR: INICIANDO ESTADO 2 (PETARDOS) ---');
-        
+
         // 1. Activa los sensores en TODOS los móviles (Mobile A y Mobile B)
-        io.emit('activar_estado_2_moviles'); 
-        
+        io.emit('activar_estado_2_moviles');
+
         // 2. Cambia el Visualizador al ESTADO 4 para dibujar los fuegos artificiales
         io.emit('cambiar_a_escena_4'); // <-- ¡AJUSTE REALIZADO!
+
+        // 3. Reinicia el collage de selfies del estado 2
+        collageSelfies = [];
+        io.emit('resetear_collage_estado_2');
     });
 
     // 2. MANEJADOR PARA RECIBIR Y REENVIAR EL FUEGO ARTIFICIAL (Recibido desde Mobile 1 o 2)
@@ -133,6 +139,32 @@ io.on('connection', (socket) => {
             mobileId: data.mobileId,
             intensity: data.intensity
         });
+    });
+
+    // 3. MANEJADOR PARA CAMBIAR DE FUEGOS A COLLAGE DE SELFIES EN EL ESTADO 2
+    socket.on('activar_selfies_estado_2', () => {
+        console.log('--- SERVIDOR: ACTIVANDO COLLAGE DE SELFIES EN ESTADO 2 ---');
+        io.emit('estado_2_selfies_activadas');
+        io.emit('activar_camaras_estado_2');
+        io.emit('mostrar_collage_estado_2', collageSelfies);
+    });
+
+    // 4. MANEJADOR PARA RECIBIR SELFIES DE LOS MÓVILES Y ENVIARLAS AL VISUALIZADOR
+    socket.on('selfie_estado_2_tomada', (payload) => {
+        if (!payload || !payload.imageData) {
+            return;
+        }
+
+        console.log(`Selfie recibida desde ${payload.mobileId || 'dispositivo desconocido'}.`);
+
+        collageSelfies.push(payload);
+
+        // Mantener un máximo de 12 selfies recientes para el collage
+        if (collageSelfies.length > 12) {
+            collageSelfies = collageSelfies.slice(collageSelfies.length - 12);
+        }
+
+        io.emit('agregar_selfie_estado_2', payload);
     });
 });
 

@@ -20,6 +20,7 @@
         let stickers = [];
         let shakeMagnitude = 0;
         let fireworks = [];
+        let collageEntries = [];
         let introPulses = [];
         let musicaFondo;
         const stickerImages = {};
@@ -72,6 +73,9 @@
                     break;
                 case 4:
                     drawFireworksScene();
+                    break;
+                case 5:
+                    drawCollageScene();
                     break;
             }
 
@@ -304,6 +308,69 @@
             }
         }
 
+        function drawCollageScene() {
+            drawGradientBackground();
+
+            fill(255);
+            textSize(width < 900 ? 54 : 72);
+            text('Selfie Collage en vivo', width / 2, height * 0.14);
+            textSize(width < 900 ? 22 : 28);
+            fill(220);
+            text('Las selfies llegan en tiempo real desde los móviles', width / 2, height * 0.2);
+
+            const loadedEntries = collageEntries.filter(entry => entry.img);
+
+            if (loadedEntries.length === 0) {
+                fill(200, 200, 255, 200);
+                textSize(width < 900 ? 28 : 36);
+                text('Esperando las primeras selfies…', width / 2, height * 0.55);
+                return;
+            }
+
+            const columns = loadedEntries.length >= 5 ? 3 : 2;
+            const rows = Math.ceil(loadedEntries.length / columns);
+            const collageTop = height * 0.25;
+            const availableHeight = height * 0.65;
+            const cellHeight = availableHeight / rows;
+            const cellWidth = width / columns;
+
+            for (let i = 0; i < loadedEntries.length; i++) {
+                const entry = loadedEntries[i];
+                const col = i % columns;
+                const row = Math.floor(i / columns);
+                const centerX = col * cellWidth + cellWidth / 2;
+                const centerY = collageTop + row * cellHeight + cellHeight / 2;
+                const drawWidth = cellWidth * 0.64;
+                const drawHeight = cellHeight * 0.62;
+
+                push();
+                noStroke();
+                fill(15, 18, 42, 210);
+                rectMode(CENTER);
+                rect(centerX, centerY, drawWidth * 1.08, drawHeight * 1.1, 26);
+
+                if (entry.img) {
+                    image(entry.img, centerX, centerY, drawWidth, drawHeight);
+                }
+
+                const label = mapMobileIdToLabel(entry.mobileId);
+                textSize(width < 900 ? 16 : 20);
+                fill(255, 245, 255, 220);
+                text(label, centerX, centerY + drawHeight * 0.58);
+
+                if (entry.pulse > 0) {
+                    const alpha = entry.pulse;
+                    stroke(255, 255, 255, alpha);
+                    strokeWeight(4);
+                    noFill();
+                    rect(centerX, centerY, drawWidth * 1.16, drawHeight * 1.18, 28);
+                    entry.pulse = max(0, entry.pulse - 6);
+                }
+
+                pop();
+            }
+        }
+
         function drawGradientBackground() {
             noFill();
             for (let y = 0; y <= height; y += 4) {
@@ -324,6 +391,39 @@
             textSize(width < 900 ? 46 : 62);
             text('¡SONRÍE! LA FOTO VA AHORA', width / 2, height / 2);
             pop();
+        }
+
+        function addSelfieToCollage(payload) {
+            if (!payload || !payload.imageData) {
+                return;
+            }
+
+            const entry = {
+                id: payload.timestamp || Date.now(),
+                mobileId: payload.mobileId || 'mobile',
+                img: null,
+                pulse: 255
+            };
+
+            collageEntries.push(entry);
+
+            if (collageEntries.length > 12) {
+                collageEntries = collageEntries.slice(collageEntries.length - 12);
+            }
+
+            loadImage(payload.imageData, (img) => {
+                entry.img = img;
+            });
+        }
+
+        function mapMobileIdToLabel(mobileId) {
+            if (mobileId === 'mobile_a') {
+                return 'Mobile A · Vibras';
+            }
+            if (mobileId === 'mobile_b') {
+                return 'Mobile B · Luz';
+            }
+            return 'Tribu DTMF';
         }
 
         class IntroPulse {
@@ -463,6 +563,7 @@
             sunsetBlendTarget = 0.65;
             sunsetBlend = 0.65;
             palmSilhouettes = [];
+            collageEntries = [];
         });
 
         socket.on('pulso_dtmf_visual', (data) => {
@@ -518,12 +619,38 @@
             console.log('Visual: escena 2 (fuegos) activada.');
             estadoActual = 4;
             fireworks = [];
+            collageEntries = [];
         });
 
         socket.on('mostrar_fuego_artificial', (data) => {
             if (estadoActual === 4) {
                 fireworks.push(new Firework(data.mobileId, data.intensity));
             }
+        });
+
+        socket.on('mostrar_collage_estado_2', (selfies) => {
+            console.log('Visual: cambiando a collage de selfies.');
+            estadoActual = 5;
+            fireworks = [];
+            if (Array.isArray(selfies)) {
+                collageEntries = [];
+                selfies.forEach(addSelfieToCollage);
+            }
+        });
+
+        socket.on('agregar_selfie_estado_2', (payload) => {
+            if (estadoActual === 4) {
+                estadoActual = 5;
+                fireworks = [];
+            }
+            addSelfieToCollage(payload);
+        });
+
+        socket.on('resetear_collage_estado_2', () => {
+            if (estadoActual === 5) {
+                estadoActual = 4;
+            }
+            collageEntries = [];
         });
 
         socket.on('control_musica_visualizador', (action) => {

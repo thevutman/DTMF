@@ -3,7 +3,9 @@ let video;
 let videoContainer;
 let btnTomarFoto;
 const state3Container = document.getElementById('state-3-container');
+const state2Container = document.getElementById('state-2-container');
 const statusText = document.getElementById('status-text');
+let btnActivarSelfies = null;
 
 function setup() {}
 
@@ -15,14 +17,17 @@ function draw() {
 
 socket.on('escena_1_intro', () => {
     statusText.textContent = 'Escena 1: la audiencia está encendiendo el intro DTMF.';
+    clearState2Controls();
 });
 
 socket.on('activar_estado_2_moviles', () => {
     statusText.textContent = 'Escena 2: atentos al beat, prepara el conteo para la foto.';
+    buildState2Controls();
 });
 
 socket.on('cambiar_a_escena_3', () => {
     statusText.textContent = 'Escena 3: arma la cámara y espera la orden del remoto.';
+    clearState2Controls();
     buildCameraUI();
 });
 
@@ -44,6 +49,15 @@ socket.on('mostrar_foto', () => {
 
 socket.on('mostrar_foto_final', () => {
     statusText.textContent = 'Escena final lista. Confirma que el visualizador proyecte la memoria DTMF.';
+    clearState2Controls();
+});
+
+socket.on('estado_2_selfies_activadas', () => {
+    statusText.textContent = 'Escena 2: cámaras móviles activadas. Monitorea el collage en el visualizador.';
+    if (btnActivarSelfies) {
+        btnActivarSelfies.disabled = true;
+        btnActivarSelfies.textContent = 'Selfies en vivo';
+    }
 });
 
 function buildCameraUI() {
@@ -77,4 +91,37 @@ function buildCameraUI() {
             btnTomarFoto.textContent = 'Enviando…';
         });
     }
+}
+
+function buildState2Controls() {
+    if (!state2Container) return;
+
+    state2Container.innerHTML = '';
+
+    const title = document.createElement('h2');
+    title.textContent = 'Escena 2 · Control Staff';
+
+    const description = document.createElement('p');
+    description.textContent = 'Cuando el público haya lanzado suficientes petardos, cambia a selfies para armar el collage en vivo.';
+
+    btnActivarSelfies = document.createElement('button');
+    btnActivarSelfies.className = 'secondary-button';
+    btnActivarSelfies.textContent = 'Activar selfies en móviles';
+
+    btnActivarSelfies.addEventListener('click', () => {
+        btnActivarSelfies.disabled = true;
+        btnActivarSelfies.textContent = 'Activando…';
+        socket.emit('activar_selfies_estado_2');
+    });
+
+    state2Container.appendChild(title);
+    state2Container.appendChild(description);
+    state2Container.appendChild(btnActivarSelfies);
+}
+
+function clearState2Controls() {
+    if (state2Container) {
+        state2Container.innerHTML = '';
+    }
+    btnActivarSelfies = null;
 }
