@@ -1,64 +1,35 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Remoto DTMF</title>
+    <title>Control Remoto · DTMF</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #333;
-            color: white;
-            margin: 0;
-            text-align: center;
-            gap: 20px;
-        }
-        .btn-control {
-            padding: 20px 40px;
-            font-size: 1.5em;
-            font-weight: bold;
-            cursor: pointer;
-            border: none;
-            border-radius: 10px;
-            color: white;
-            transition: transform 0.2s, background-color 0.2s;
-        }
-        #btn-estado3 {
-            background-color: #ff6347; /* Tomato */
-        }
-        #btn-foto {
-            background-color: #4682b4; /* SteelBlue */
-        }
-        #btn-finalizar {
-            background-color: #3cb371; /* MediumSeaGreen */
-        }
-        .btn-control:active {
-            transform: scale(0.95);
-        }
-
-
-        
-
-        
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Control Remoto DTMF</h1>
-    <button id="btn-estado2" class="btn-control">INICIAR ESTADO 2: PETARDOS</button>
-    <button id="btn-estado3" class="btn-control">Activar Estado 3</button>
-    <button id="btn-foto" class="btn-control">Habilitar Foto</button>
-    <button id="btn-finalizar" class="btn-control">Finalizar</button>
+    <main class="panel">
+        <header>
+            <h1>Control DTMF</h1>
+            <p>Secuencia recomendada: Intro → Fuegos → Foto → Final.</p>
+        </header>
 
-    <div class="controls-container">
-        <h3>Controles de Música</h3>
-        <button id="play-btn">Reproducir</button>
-        <button id="pause-btn">Pausar</button>
-        <button id="forward-btn">Adelantar 10s</button>
-    </div>
+        <section class="grid">
+            <button id="btn-escena1" class="btn-control primary">Escena 1 · Pulso</button>
+            <button id="btn-estado2" class="btn-control warning">Escena 2 · Fuegos</button>
+            <button id="btn-estado3" class="btn-control accent">Escena 3 · Foto</button>
+            <button id="btn-foto" class="btn-control info">Habilitar Foto</button>
+            <button id="btn-finalizar" class="btn-control success">Finalizar Show</button>
+        </section>
+
+        <section class="music">
+            <h3>Música de escenario</h3>
+            <div class="music-buttons">
+                <button id="play-btn">Play</button>
+                <button id="pause-btn">Pause</button>
+                <button id="forward-btn">+10s</button>
+            </div>
+        </section>
+    </main>
 
     <script src="sketch.js"></script>
 </body>

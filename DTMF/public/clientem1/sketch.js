@@ -1,120 +1,249 @@
 const socket = io();
 const mainContainer = document.getElementById('main-container');
 
-let maracaSound;
-let estadoActual = 0; // 0: Inicio, 2: Petardos/Tiros, 3: Maraca/Foto
-let maracaActivated = false; // Controla la lógica de la Maraca (Estado 3)
-let petardosActivated = false; // Controla la lógica de los Petardos (Estado 2)
+const MOBILE_ID = 'mobile_a';
+const FIREWORK_THRESHOLD = 28;
+const MARACA_THRESHOLD = 16;
+const SENSOR_THROTTLE = 120;
+const INTRO_THROTTLE = 350;
 
-// Variables para el sensor y throttling (compartidas por ambos estados)
-let lastSentTime = 0;
-const throttleDelay = 100; // Limita el envío de datos a 10 veces por segundo
-const FIREWORK_THRESHOLD = 30; // Umbral de movimiento para detectar un "disparo"
+let estadoActual = 0; // 0: esperando, 1: intro DTMF, 2: petardos, 3: foto/maraca
+let maracaActivated = false;
+let petardosActivated = false;
+
+let lastSensorDispatch = 0;
+let lastIntroPulse = 0;
+
+let maracaSound;
+let osc;
+let audioPrimed = false;
+let meterFill;
 
 function preload() {
-    maracaSound = loadSound('./assets/sonido/maracas.mp3');
-    // Si tienes un sonido para los fuegos artificiales, cárgalo aquí:
-    // fireworkSound = loadSound('./assets/sonido/petardo.mp3');
+    soundFormats('mp3');
+    maracaSound = loadSound('../assets/sonido/maracas.mp3');
 }
 
 function setup() {
     noCanvas();
-    // Inicializar el listener de movimiento globalmente para ambos estados
-    window.addEventListener('devicemotion', handleMotion);
+    renderWaiting();
+    window.addEventListener('touchstart', primeAudio, { passive: true });
+    window.addEventListener('devicemotion', handleMotion, { passive: true });
 
-    // 1. MANEJADOR PARA INICIAR EL ESTADO 2 (PETARDOS)
+    socket.on('escena_1_intro', () => {
+        estadoActual = 1;
+        maracaActivated = false;
+        petardosActivated = false;
+        renderSceneOne();
+    });
+
     socket.on('activar_estado_2_moviles', () => {
-        console.log('Señal recibida: INICIAR ESTADO 2 (Petardos)');
-        
-        // Limpiar estados anteriores
         estadoActual = 2;
         maracaActivated = false;
-        
-        // Crear la interfaz del Estado 2
-        mainContainer.innerHTML = `
-            <h1>¡Prepárate! 💣</h1>
-            <p id="status-message">Cuando digan "tiros", ¡levanta tu móvil rápido!</p>
-        `;
-        
-        // Activar el sensor para los petardos
-        petardosActivated = true; 
-        
-        // Solicitar permiso de sensor (necesario en iOS)
-        if (typeof DeviceMotionEvent.requestPermission === 'function') {
-            DeviceMotionEvent.requestPermission()
-                .then(permissionState => {
-                    if (permissionState === 'granted') {
-                        console.log('Permiso de sensores concedido y activado para Estado 2.');
-                    }
-                })
-                .catch(console.error);
+        petardosActivated = true;
+        renderSceneTwo();
+        requestSensorPermission();
+    });
+
+    socket.on('cambiar_a_escena_3', () => {
+        estadoActual = 3;
+        maracaActivated = false;
+        petardosActivated = false;
+        renderSceneThreeWaiting();
+    });
+
+    socket.on('habilitar_foto', () => {
+        if (estadoActual === 3) {
+            const status = document.getElementById('status-message');
+            if (status) {
+                status.textContent = '¡Sonríe y mantente listo!';
+            }
         }
     });
 
-    // 2. MANEJADOR PARA INICIAR EL ESTADO 3 (MARACA)
-    socket.on('cambiar_a_escena_3', () => {
-        console.log('Señal recibida: INICIAR ESTADO 3 (Maraca)');
-        estadoActual = 3;
-        petardosActivated = false;
-        
-        // Crear la interfaz del Estado 3
-        mainContainer.innerHTML = `
-            <h1>Estado 3</h1>
-            <p id="status-message">Esperando la foto...</p>
-        `;
+    socket.on('mostrar_foto', () => {
+        if (estadoActual === 3) {
+            const status = document.getElementById('status-message');
+            if (status) {
+                status.textContent = 'Siente el ritmo. ¡Maraca lista!';
+            }
+        }
     });
 
-    // ... (Mantener la lógica de activación de la maraca existente)
     socket.on('activar_maraca', () => {
-        // ... (Tu lógica existente para activar maraca) ...
-        // ... (Es importante que aquí se mantenga el código para maracaActivated = true;)
+        if (estadoActual === 3) {
+            maracaActivated = true;
+            renderMaracaMode();
+            requestSensorPermission();
+        }
+    });
+
+    socket.on('mostrar_foto_final', () => {
+        estadoActual = 0;
+        maracaActivated = false;
+        petardosActivated = false;
+        renderClosing();
     });
 }
 
-// 3. FUNCIÓN UNIFICADA PARA PROCESAR EL MOVIMIENTO
-function handleMotion(event) {
-    if (estadoActual === 2 && petardosActivated) {
-        handleFireworkMotion(event);
-    } else if (estadoActual === 3 && maracaActivated) {
-        // Lógica de la maraca (que ya tenías)
-        // La estoy dejando incompleta aquí, asume que tu código de maraca está completo
-        // ... (Tu lógica existente para el Estado 3) ...
-        // ... (Asegúrate de que la emisión de 'maraca_agitada' esté aquí) ...
+function primeAudio() {
+    if (!audioPrimed && getAudioContext().state !== 'running') {
+        getAudioContext().resume()
+            .then(() => {
+                audioPrimed = true;
+            })
+            .catch(() => {});
+    } else {
+        audioPrimed = true;
     }
 }
 
-// 4. LÓGICA ESPECÍFICA PARA EL ESTADO 2 (PETARDOS)
-function handleFireworkMotion(event) {
+function renderWaiting() {
+    mainContainer.innerHTML = `
+        <div class="fade">
+            <div class="status-pill">Esperando señal</div>
+            <h1>Team Vibras</h1>
+            <p>Sigue conectado. El staff lanzará la primera escena muy pronto.</p>
+            <p class="small-text">Mantén tu volumen activo y desactiva el bloqueo de rotación.</p>
+        </div>
+    `;
+}
+
+function renderSceneOne() {
+    mainContainer.innerHTML = `
+        <div class="fade">
+            <div class="status-pill">Escena 1 · Pulso DTMF</div>
+            <h1>Golpea el ritmo</h1>
+            <p>Toca el botón cada vez que Bad Bunny grite. Tus pulsos pintan la pantalla gigante.</p>
+            <button id="btn-pulse" class="action-button">Enviar pulso</button>
+            <p class="small-text">Tip: siente el beat y no lo hagas más de una vez por beat.</p>
+        </div>
+    `;
+
+    const pulseButton = document.getElementById('btn-pulse');
+    if (pulseButton) {
+        pulseButton.addEventListener('click', sendIntroPulse);
+    }
+}
+
+function renderSceneTwo() {
+    mainContainer.innerHTML = `
+        <div class="fade">
+            <div class="status-pill">Escena 2 · Fuegos</div>
+            <h1>Levanta el teléfono</h1>
+            <p>Cuando escuches los disparos de DTMF, lanza chispas levantando el móvil como si fuera una bengala.</p>
+            <p class="small-text">Cada sacudida fuerte manda fuego al visualizador.</p>
+        </div>
+    `;
+}
+
+function renderSceneThreeWaiting() {
+    mainContainer.innerHTML = `
+        <div class="fade">
+            <div class="status-pill">Escena 3 · Foto Tribu</div>
+            <h1>Conecta la energía</h1>
+            <p id="status-message">Espera la señal del staff para la foto final.</p>
+            <p class="small-text">Cuando veas la foto en pantalla, agita al ritmo para iluminarla.</p>
+        </div>
+    `;
+}
+
+function renderMaracaMode() {
+    mainContainer.innerHTML = `
+        <div class="fade">
+            <div class="status-pill">Maraca activada</div>
+            <h1>Agita para brillar</h1>
+            <p>Agita tu móvil como maraca cuando suene el coro. Cada movimiento enciende la foto de la tribu.</p>
+            <div class="maraca-meter"><span id="meter-fill"></span></div>
+            <p class="small-text">Si no reacciona, revisa que el bloqueo de orientación esté desactivado.</p>
+        </div>
+    `;
+    meterFill = document.getElementById('meter-fill');
+}
+
+function renderClosing() {
+    mainContainer.innerHTML = `
+        <div class="fade">
+            <div class="status-pill">Gracias Tribu</div>
+            <h1>Escena final</h1>
+            <p>La foto quedó brutal. Guarda tu energía para el encore.</p>
+        </div>
+    `;
+}
+
+function requestSensorPermission() {
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().catch(() => { /* Ignorar si el usuario cancela */ });
+    }
+}
+
+function sendIntroPulse() {
+    const now = Date.now();
+    if (now - lastIntroPulse < INTRO_THROTTLE) {
+        return;
+    }
+    lastIntroPulse = now;
+
+    const tones = ['D', 'T', 'M', 'F'];
+    const tone = tones[Math.floor(Math.random() * tones.length)];
+    const intensity = random(0.4, 1);
+
+    socket.emit('pulso_dtmf', {
+        mobileId: MOBILE_ID,
+        tone,
+        intensity
+    });
+
+    if (!osc) {
+        osc = new p5.Oscillator('triangle');
+        osc.start();
+        osc.amp(0, 0);
+    }
+    const baseFrequency = tone === 'D' ? 415 : tone === 'T' ? 554 : tone === 'M' ? 622 : 698;
+    osc.freq(baseFrequency);
+    osc.amp(0.45, 0.02);
+    osc.amp(0, 0.18);
+}
+
+function handleMotion(event) {
     const acceleration = event.accelerationIncludingGravity;
-    
-    // Calcular la magnitud del movimiento (similar a la maraca)
+    if (!acceleration) return;
+
     const magnitude = Math.sqrt(
         acceleration.x * acceleration.x +
         acceleration.y * acceleration.y +
         acceleration.z * acceleration.z
     );
 
-    // Detectar un movimiento rápido y significativo
-    if (magnitude > FIREWORK_THRESHOLD && (Date.now() - lastSentTime > throttleDelay)) {
-        console.log('¡Movimiento de DISPARO detectado! Magnitud:', magnitude);
-        
-        const statusMessage = document.getElementById('status-message');
-        if (statusMessage) {
-            statusMessage.textContent = '¡Fuego Artificial Lanzado! 💥';
-            setTimeout(() => {
-                if (statusMessage) statusMessage.textContent = '¡Levanta tu móvil rápido!';
-            }, 500);
-        }
+    const now = Date.now();
+    if (now - lastSensorDispatch < SENSOR_THROTTLE) {
+        return;
+    }
 
-        // 1. Opcional: Reproducir sonido de petardo aquí
-        // fireworkSound.play();
-
-        // 2. Enviar la señal al servidor
+    if (estadoActual === 2 && petardosActivated && magnitude > FIREWORK_THRESHOLD) {
+        lastSensorDispatch = now;
         socket.emit('lanzar_fuego_artificial', {
-            mobileId: 'mobile_a', // Identificador para saber qué móvil disparó
-            intensity: magnitude // Usar la intensidad para el tamaño del fuego artificial
+            mobileId: MOBILE_ID,
+            intensity: magnitude
         });
-
-        lastSentTime = Date.now();
+    } else if (estadoActual === 3 && maracaActivated && magnitude > MARACA_THRESHOLD) {
+        lastSensorDispatch = now;
+        if (maracaSound && audioPrimed) {
+            maracaSound.play();
+        }
+        if (meterFill) {
+            const percent = Math.min(100, Math.floor((magnitude / 40) * 100));
+            meterFill.style.width = `${percent}%`;
+            setTimeout(() => {
+                if (meterFill) {
+                    meterFill.style.width = '0%';
+                }
+            }, 220);
+        }
+        socket.emit('maraca_agitada', {
+            x: acceleration.x,
+            y: acceleration.y,
+            z: acceleration.z
+        });
     }
 }

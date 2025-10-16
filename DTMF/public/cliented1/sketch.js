@@ -1,69 +1,80 @@
 const socket = io();
 let video;
-const state3Container = document.getElementById('state-3-container');
-
-// Declaramos la variable al inicio, pero sin asignarle valor todavía
-let videoContainer; 
+let videoContainer;
 let btnTomarFoto;
+const state3Container = document.getElementById('state-3-container');
+const statusText = document.getElementById('status-text');
 
-// La función setup de P5.js ahora está vacía
-function setup() {
-    // La inicialización de P5.js se hace con esta función vacía
-}
+function setup() {}
 
-// Esta función se ejecuta continuamente para dibujar en el canvas
 function draw() {
-    // Dibuja el video solo si ya ha sido inicializado y la variable videoContainer existe
     if (video && videoContainer) {
         image(video, 0, 0, videoContainer.offsetWidth, videoContainer.offsetHeight);
     }
 }
 
-// Escuchar el evento del servidor para cambiar de estado
-socket.on('cambiar_a_escena_3', () => {
-    console.log('Señal recibida. Creando la interfaz del Estado 3.');
-    
-    // Crear dinámicamente los elementos de la interfaz
-    const title = document.createElement('h1');
-    title.textContent = '¡Prepárense para la foto!';
-    
-    // Asignamos el elemento HTML a la variable declarada al inicio
-    videoContainer = document.createElement('div');
-    videoContainer.id = 'video-container';
-    
-    btnTomarFoto = document.createElement('button');
-    btnTomarFoto.id = 'btn-tomar-foto';
-    btnTomarFoto.textContent = 'Tomar Foto';
-    btnTomarFoto.disabled = true;
-
-    // Agregar los elementos al DOM
-    state3Container.appendChild(title);
-    state3Container.appendChild(videoContainer);
-    state3Container.appendChild(btnTomarFoto);
-    
-    // Iniciar la cámara con P5.js
-    video = createCapture(VIDEO);
-    video.size(640, 480);
-    video.hide();
-    
-    // Añadir el listener al botón dinámico
-    btnTomarFoto.addEventListener('click', () => {
-        let img = video.get();
-        let imageData = img.canvas.toDataURL('image/jpeg', 0.9);
-        
-        socket.emit('foto_tomada', imageData);
-        console.log('Foto tomada y enviada al servidor.');
-        
-        btnTomarFoto.disabled = true;
-        btnTomarFoto.textContent = 'Foto Enviada';
-    });
+socket.on('escena_1_intro', () => {
+    statusText.textContent = 'Escena 1: la audiencia está encendiendo el intro DTMF.';
 });
 
-// Escuchar el evento del servidor para habilitar el botón
+socket.on('activar_estado_2_moviles', () => {
+    statusText.textContent = 'Escena 2: atentos al beat, prepara el conteo para la foto.';
+});
+
+socket.on('cambiar_a_escena_3', () => {
+    statusText.textContent = 'Escena 3: arma la cámara y espera la orden del remoto.';
+    buildCameraUI();
+});
+
 socket.on('habilitar_foto', () => {
-    console.log('Botón habilitado por el servidor.');
+    statusText.textContent = '¡Foto habilitada! Captura cuando todos estén listos.';
     if (btnTomarFoto) {
         btnTomarFoto.disabled = false;
-        btnTomarFoto.textContent = '¡Sonríe!';
+        btnTomarFoto.textContent = 'Tomar Foto';
     }
 });
+
+socket.on('mostrar_foto', () => {
+    statusText.textContent = 'Foto enviada al visualizador. Activa la maraca en móviles.';
+    if (btnTomarFoto) {
+        btnTomarFoto.disabled = true;
+        btnTomarFoto.textContent = 'Foto enviada';
+    }
+});
+
+socket.on('mostrar_foto_final', () => {
+    statusText.textContent = 'Escena final lista. Confirma que el visualizador proyecte la memoria DTMF.';
+});
+
+function buildCameraUI() {
+    if (!state3Container) return;
+    if (!videoContainer) {
+        const title = document.createElement('h2');
+        title.textContent = 'Prepara la toma final';
+
+        videoContainer = document.createElement('div');
+        videoContainer.id = 'video-container';
+
+        btnTomarFoto = document.createElement('button');
+        btnTomarFoto.id = 'btn-tomar-foto';
+        btnTomarFoto.textContent = 'Esperando señal';
+        btnTomarFoto.disabled = true;
+
+        state3Container.innerHTML = '';
+        state3Container.appendChild(title);
+        state3Container.appendChild(videoContainer);
+        state3Container.appendChild(btnTomarFoto);
+
+        video = createCapture(VIDEO);
+        video.size(640, 480);
+        video.hide();
+
+        btnTomarFoto.addEventListener('click', () => {
+            const img = video.get();
+            const imageData = img.canvas.toDataURL('image/jpeg', 0.9);
+            socket.emit('foto_tomada', imageData);
+            btnTomarFoto.disabled = true;
+            btnTomarFoto.textContent = 'Enviando…';
+        });
+    }
+}

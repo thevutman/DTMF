@@ -5,156 +5,275 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/addons/p5.sound.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap">
     <style>
-        body { margin: 0; overflow: hidden; background-color: black; }
+        body { margin: 0; overflow: hidden; background: #05050a; }
+        canvas { display: block; }
     </style>
 </head>
 <body>
     <script>
         const socket = io();
 
-        // ------------------------------------
-        // VARIABLES GLOBALES (AÑADIDO: fireworks)
-        // ------------------------------------
-        let estadoActual = 0;
+        let estadoActual = 0; // 0 intro, 1 reunir, 2 foto, 3 final, 4 fuegos
         let fotoMostrada = null;
-        let stickers = []; 
+        let stickers = [];
         let shakeMagnitude = 0;
-        let textoAnimado = "Junten todos para la foto";
-        
-        let fireworks = []; // ARRAY GLOBAL PARA ALMACENAR LOS FUEGOS ARTIFICIALES ACTIVOS
-
+        let fireworks = [];
+        let introPulses = [];
         let musicaFondo;
         const stickerImages = {};
+        let toneColors = {};
+        let smileTimer = 0;
+        let pulsePhase = 0;
+        const STICKER_SIZE = 160;
 
         function preload() {
-            // Precargamos las imágenes de los stickers.
-            stickerImages['sticker-1'] = loadImage('../assets/palmera.png');
-            stickerImages['sticker-2'] = loadImage('../assets/palmera.png');
-            stickerImages['sticker-3'] = loadImage('../assets/palmera.png');
-            stickerImages['sticker-4'] = loadImage('../assets/palmera.png');
-
-            // Cargar la música
+            stickerImages['base'] = loadImage('../assets/palmera.png');
             musicaFondo = loadSound('../assets/sonido/cancion.mp3');
         }
 
         function setup() {
             createCanvas(windowWidth, windowHeight);
+            imageMode(CENTER);
             textAlign(CENTER, CENTER);
-            textSize(50);
-            noStroke();
+            textFont('Poppins');
+            toneColors = {
+                'D': color(241, 91, 181),
+                'T': color(0, 187, 249),
+                'M': color(0, 245, 212),
+                'F': color(254, 228, 64)
+            };
         }
 
         function draw() {
-            background(0);
+            background(5, 5, 15);
 
-            // Estado 1: Pantalla de espera para la foto
-            if (estadoActual === 1) {
-                fill(255);
-                text(textoAnimado, width / 2, height / 2);
-            } 
-            
-            // Estado 2: Foto tomada y maraca activa (¡LÓGICA EXISTENTE!)
-            else if (estadoActual === 2) {
-                if (fotoMostrada) {
-                    imageMode(CENTER);
-                    image(fotoMostrada, width / 2, height / 2, windowWidth, windowHeight);
-                }
-                
-                // Dibujar los stickers en la pantalla
-                stickers.forEach(s => {
-                    const stickerImg = stickerImages[s.stickerId];
-                    if (stickerImg) {
-                        // Calcular las coordenadas absolutas
-                        const x = s.x * width;
-                        const y = s.y * height;
-                        imageMode(CENTER);
-                        image(stickerImg, x, y, 100, 100); 
-                    }
-                });
-
-                // Efecto de la maraca
-                if (shakeMagnitude > 0) {
-                    fill(255, 255, 255, 100);
-                    noStroke();
-                    ellipse(width / 2, height / 2, shakeMagnitude * 10);
-                    shakeMagnitude *= 0.9;
-                }
-            }
-            
-            // Estado 3: Foto final (¡LÓGICA EXISTENTE!)
-            else if (estadoActual === 3) {
-                if (fotoMostrada) {
-                    imageMode(CENTER);
-                    image(fotoMostrada, width / 2, height / 2, windowWidth, windowHeight);
-                }
+            switch (estadoActual) {
+                case 0:
+                    drawIntroScene();
+                    break;
+                case 1:
+                    drawGatherScene();
+                    break;
+                case 2:
+                    drawPhotoScene(false);
+                    break;
+                case 3:
+                    drawPhotoScene(true);
+                    break;
+                case 4:
+                    drawFireworksScene();
+                    break;
             }
 
-            // ===============================================
-            // ESTADO 4: FUEGOS ARTIFICIALES (¡LÓGICA NUEVA!)
-            // ===============================================
-            else if (estadoActual === 4) {
+            if (smileTimer > 0) {
+                drawSmileOverlay();
+                smileTimer--;
+            }
+        }
+
+        function drawIntroScene() {
+            pulsePhase += 0.004;
+            noStroke();
+            for (let i = 0; i < height; i += 6) {
+                const alpha = map(Math.sin(pulsePhase * 3 + i * 0.008), -1, 1, 20, 80);
+                fill(10, 12, 40, alpha);
+                rect(0, i, width, 6);
+            }
+
+            stroke(255, 32);
+            for (let i = 0; i <= 10; i++) {
+                const offset = Math.sin(pulsePhase * 6 + i * 0.4) * 60;
+                line((width / 10) * i + offset, 0, (width / 10) * i - offset, height);
+            }
+
+            for (let i = introPulses.length - 1; i >= 0; i--) {
+                introPulses[i].update();
+                introPulses[i].show();
+                if (introPulses[i].isFinished()) {
+                    introPulses.splice(i, 1);
+                }
+            }
+
+            fill(255);
+            textSize(width < 900 ? 54 : 80);
+            text('BAD BUNNY · DTMF', width / 2, height * 0.28);
+            textSize(width < 900 ? 36 : 48);
+            text('AUDIENCIA EN CONTROL', width / 2, height * 0.4);
+
+            fill(200, 200, 255, 190);
+            textSize(width < 900 ? 22 : 28);
+            text('Golpea tu pantalla para mandar tonos y encender la tarima', width / 2, height * 0.72);
+            textSize(width < 900 ? 18 : 24);
+            text('Cada tono aparece como una letra D · T · M · F en la pantalla', width / 2, height * 0.8);
+        }
+
+        function drawGatherScene() {
+            drawGradientBackground();
+            fill(255);
+            textSize(width < 900 ? 52 : 68);
+            text('Junten todos para la foto', width / 2, height * 0.38);
+            fill(180, 180, 255, 180);
+            textSize(width < 900 ? 24 : 30);
+            text('El staff está alineando la toma. Móviles listos.', width / 2, height * 0.52);
+        }
+
+        function drawPhotoScene(isFinal) {
+            drawGradientBackground();
+            if (fotoMostrada) {
+                push();
+                const ratio = fotoMostrada.width / fotoMostrada.height;
+                const canvasRatio = width / height;
+                let drawWidth, drawHeight;
+                if (ratio > canvasRatio) {
+                    drawWidth = width;
+                    drawHeight = width / ratio;
+                } else {
+                    drawHeight = height;
+                    drawWidth = height * ratio;
+                }
+                image(fotoMostrada, width / 2, height / 2, drawWidth, drawHeight);
+                pop();
+            }
+
+            stickers.forEach(sticker => {
+                const stickerImg = stickerImages['base'];
+                if (!stickerImg) return;
+                const sx = sticker.x * width;
+                const sy = sticker.y * height;
+                const toneColor = toneColors[sticker.tone] || color(255);
+                push();
+                imageMode(CENTER);
+                tint(red(toneColor), green(toneColor), blue(toneColor), 240);
+                image(stickerImg, sx, sy, STICKER_SIZE, STICKER_SIZE);
+                noTint();
+                pop();
+            });
+
+            if (!isFinal && shakeMagnitude > 0) {
+                push();
+                noStroke();
+                fill(255, 255, 255, 90);
+                ellipse(width / 2, height / 2, shakeMagnitude * 18);
+                shakeMagnitude *= 0.9;
+                pop();
+            }
+
+            if (isFinal) {
+                fill(10, 10, 15, 180);
+                rect(0, height * 0.82, width, height * 0.18);
                 fill(255);
-                textSize(60);
-                text("¡LANZA LOS PETARDOS!", width / 2, height / 2);
+                textSize(width < 900 ? 30 : 40);
+                text('Memoria DTMF lista para descargar', width / 2, height * 0.9);
+            }
+        }
 
-                // Aplicar gravedad global a todos los fuegos no explotados
-                let gravity = createVector(0, 0.2);
-                
-                // Actualizar y dibujar fuegos artificiales
-                for (let i = fireworks.length - 1; i >= 0; i--) {
-                    if (!fireworks[i].exploded) {
-                        fireworks[i].applyForce(gravity);
-                    }
-                    fireworks[i].update();
-                    fireworks[i].show();
+        function drawFireworksScene() {
+            drawGradientBackground();
+            fill(255);
+            textSize(width < 900 ? 56 : 74);
+            text('¡LANZA LOS PETARDOS!', width / 2, height * 0.24);
+            textSize(width < 900 ? 26 : 34);
+            fill(200, 200, 255, 190);
+            text('Levanta los móviles cuando el beat caiga', width / 2, height * 0.32);
 
-                    // Eliminar los fuegos artificiales que ya terminaron
-                    if (fireworks[i].isFinished()) {
-                        fireworks.splice(i, 1);
-                    }
+            const gravity = createVector(0, 0.22);
+            for (let i = fireworks.length - 1; i >= 0; i--) {
+                if (!fireworks[i].exploded) {
+                    fireworks[i].applyForce(gravity);
+                }
+                fireworks[i].update();
+                fireworks[i].show();
+                if (fireworks[i].isFinished()) {
+                    fireworks.splice(i, 1);
                 }
             }
         }
 
-        // ------------------------------------
-        // CLASES DE PARTÍCULAS (¡AÑADIDO!)
-        // ------------------------------------
+        function drawGradientBackground() {
+            noFill();
+            for (let y = 0; y <= height; y += 4) {
+                const lerpVal = map(y, 0, height, 0, 1);
+                const c1 = color(15, 10, 40);
+                const c2 = color(5, 5, 15);
+                const c = lerpColor(c1, c2, lerpVal);
+                stroke(c);
+                line(0, y, width, y);
+            }
+        }
+
+        function drawSmileOverlay() {
+            push();
+            fill(0, 0, 0, 140);
+            rect(0, 0, width, height);
+            fill(255);
+            textSize(width < 900 ? 46 : 62);
+            text('¡SONRÍE! LA FOTO VA AHORA', width / 2, height / 2);
+            pop();
+        }
+
+        class IntroPulse {
+            constructor({ tone, intensity, mobileId }) {
+                this.x = random(width * 0.2, width * 0.8);
+                this.y = random(height * 0.25, height * 0.8);
+                this.radius = 40;
+                this.growth = map(intensity || 1, 0.4, 1.6, 10, 26);
+                this.alpha = 255;
+                this.tone = tone || 'D';
+                this.mobileId = mobileId;
+                this.color = toneColors[this.tone] || color(255);
+            }
+
+            update() {
+                this.radius += this.growth;
+                this.alpha -= 4;
+            }
+
+            show() {
+                push();
+                stroke(red(this.color), green(this.color), blue(this.color), this.alpha);
+                strokeWeight(4);
+                noFill();
+                ellipse(this.x, this.y, this.radius * 2);
+                fill(red(this.color), green(this.color), blue(this.color), this.alpha);
+                noStroke();
+                textSize(map(this.radius, 40, 420, 28, 96));
+                text(this.tone, this.x, this.y);
+                pop();
+            }
+
+            isFinished() {
+                return this.alpha <= 0;
+            }
+        }
 
         class Firework {
             constructor(mobileId, intensity) {
-                // Posición inicial aleatoria en la parte inferior del canvas
-                this.pos = createVector(random(width * 0.2, width * 0.8), height * 0.9);
-                this.vel = createVector(0, random(-15, -20)); // Velocidad inicial hacia arriba
-                this.acc = createVector(0, 0); 
-                
-                // El color depende del móvil (A=Rojos/Naranjas, B=Azules/Cianes)
+                this.pos = createVector(random(width * 0.2, width * 0.8), height * 0.95);
+                this.vel = createVector(random(-1.5, 1.5), random(-16, -22));
+                this.acc = createVector(0, 0);
                 if (mobileId === 'mobile_a') {
-                    this.color = color(random(255, 255), random(100, 160), 0); 
+                    this.color = color(241, 91, 181);
                 } else {
-                    this.color = color(0, random(150, 255), random(150, 255));
+                    this.color = color(0, 187, 249);
                 }
-
-                this.lifespan = 255; 
+                this.lifespan = 255;
                 this.exploded = false;
                 this.explosionParticles = [];
-                // Escalar intensidad: de 30-80 (ejemplo de sensor) a 0.5-1.5 (escala de efecto)
-                this.intensity = map(intensity, 30, 80, 0.5, 1.5); 
+                this.intensity = map(intensity, 30, 90, 0.6, 1.5);
             }
 
             update() {
                 if (!this.exploded) {
                     this.vel.add(this.acc);
                     this.pos.add(this.vel);
-                    this.acc.mult(0); 
-                    this.lifespan -= 5;
-                    
-                    // Explota si llega a su altura o se acaba la vida
-                    if (this.vel.y > -1 || this.lifespan < 50) {
+                    this.acc.mult(0);
+                    this.lifespan -= 4;
+                    if (this.vel.y > -2 || this.lifespan < 80) {
                         this.explode();
                     }
                 } else {
-                    // Actualizar partículas de explosión
                     for (let i = this.explosionParticles.length - 1; i >= 0; i--) {
                         this.explosionParticles[i].update();
                         if (this.explosionParticles[i].isFinished()) {
@@ -167,10 +286,10 @@
             applyForce(force) {
                 this.acc.add(force);
             }
-            
+
             explode() {
                 this.exploded = true;
-                let numParticles = Math.floor(random(50, 100) * this.intensity);
+                const numParticles = Math.floor(random(60, 110) * this.intensity);
                 for (let i = 0; i < numParticles; i++) {
                     this.explosionParticles.push(new Particle(this.pos.x, this.pos.y, this.color));
                 }
@@ -178,12 +297,12 @@
 
             show() {
                 if (!this.exploded) {
-                    noStroke();
-                    fill(this.color, this.lifespan);
-                    ellipse(this.pos.x, this.pos.y, 5, 5);
+                    stroke(this.color);
+                    strokeWeight(4);
+                    point(this.pos.x, this.pos.y);
                 } else {
-                    for (let p of this.explosionParticles) {
-                        p.show();
+                    for (const particle of this.explosionParticles) {
+                        particle.show();
                     }
                 }
             }
@@ -194,112 +313,115 @@
         }
 
         class Particle {
-            constructor(x, y, color) {
+            constructor(x, y, colorIn) {
                 this.pos = createVector(x, y);
                 this.vel = p5.Vector.random2D();
-                this.vel.mult(random(2, 10));
-                this.acc = createVector(0, 0);
+                this.vel.mult(random(2, 9));
                 this.lifespan = 255;
-                this.color = color;
+                this.color = colorIn;
             }
 
             update() {
-                this.vel.mult(0.95); 
+                this.vel.mult(0.94);
                 this.pos.add(this.vel);
-                this.lifespan -= 4;
+                this.lifespan -= 5;
             }
 
             show() {
                 noStroke();
-                fill(this.color, this.lifespan);
-                ellipse(this.pos.x, this.pos.y, 3, 3);
+                fill(red(this.color), green(this.color), blue(this.color), this.lifespan);
+                ellipse(this.pos.x, this.pos.y, 4, 4);
             }
-            
+
             isFinished() {
-                return this.lifespan < 0;
+                return this.lifespan <= 0;
             }
         }
 
-        // ------------------------------------
-        // MANEJADORES DE EVENTOS DE SOCKET.IO
-        // ------------------------------------
-
-        // ¡NUEVO! Manejador para cambiar al Estado 4: Fuegos Artificiales
-        socket.on('cambiar_a_escena_4', () => {
-            console.log('Cambiando a escena del Estado 4 (Fuegos Artificiales)...');
-            estadoActual = 4;
-            fireworks = []; // Limpiar fuegos anteriores
+        socket.on('escena_1_intro', () => {
+            console.log('Visual: escena 1 (intro) activada.');
+            estadoActual = 0;
+            introPulses = [];
+            fireworks = [];
+            stickers = [];
+            fotoMostrada = null;
         });
-        
-        // ¡NUEVO! Manejador para recibir la señal de disparo de los móviles
-        socket.on('mostrar_fuego_artificial', (data) => {
-            console.log(`Visualizador: Recibido disparo de ${data.mobileId} (Intensidad: ${data.intensity})`);
-            
-            // Solo crear fuegos si estamos en el estado correcto
-            if (estadoActual === 4) {
-                let newFirework = new Firework(data.mobileId, data.intensity);
-                fireworks.push(newFirework);
+
+        socket.on('pulso_dtmf_visual', (data) => {
+            if (estadoActual === 0) {
+                introPulses.push(new IntroPulse(data));
             }
         });
 
-
-        // --- Manejadores de eventos existentes (Actualizados para consistencia) ---
-
         socket.on('cambiar_a_escena_3', () => {
-            console.log('Cambiando a escena del Estado 1...');
+            console.log('Visual: escena 3 (pre foto) activada.');
             estadoActual = 1;
+            introPulses = [];
         });
 
         socket.on('mostrar_foto', (imageData) => {
-            console.log('Visualizador recibe la foto. Cambiando a Estado 2 (Foto/Stickers).');
-            estadoActual = 2; // Estado 2 = Foto con Stickers/Maraca
-            loadImage(imageData, img => {
+            console.log('Visual: foto recibida. Escena 2.');
+            estadoActual = 2;
+            stickers = [];
+            loadImage(imageData, (img) => {
                 fotoMostrada = img;
             });
         });
 
-        // Manejador para el efecto de la maraca
-        socket.on('efecto_maraca', (data) => {
-            const magnitude = Math.sqrt(data.x * data.x + data.y * data.y + data.z * data.z);
-            shakeMagnitude = magnitude;
-            console.log('Visualizador recibe datos de maraca. Magnitud:', magnitude);
-        });
-
-        // Manejador para los stickers
         socket.on('agregar_sticker_visualizador', (stickerData) => {
-            console.log('Visualizador recibe un sticker.');
             stickers.push(stickerData);
         });
 
-        socket.on('mostrar_foto_final', (data) => {
-            console.log('Visualizador recibe la foto final. Cambiando a Estado 3.');
-            estadoActual = 3; // Estado 3 = Foto Final
-            loadImage(data.foto, img => {
-                fotoMostrada = img;
-            });
+        socket.on('efecto_maraca', (data) => {
+            const magnitude = Math.sqrt(data.x * data.x + data.y * data.y + data.z * data.z);
+            shakeMagnitude = magnitude;
         });
 
-        // Manejar los comandos de música desde el Remoto
-        socket.on('control_musica_visualizador', (action) => {
-            console.log(`Visualizador recibe orden de música: ${action}`);
+        socket.on('mostrar_foto_final', (data) => {
+            console.log('Visual: foto final lista.');
+            estadoActual = 3;
+            if (data) {
+                loadImage(data.foto, (img) => {
+                    fotoMostrada = img;
+                });
+                stickers = data.stickers || stickers;
+            }
+        });
 
+        socket.on('cambiar_a_escena_4', () => {
+            console.log('Visual: escena 2 (fuegos) activada.');
+            estadoActual = 4;
+            fireworks = [];
+        });
+
+        socket.on('mostrar_fuego_artificial', (data) => {
+            if (estadoActual === 4) {
+                fireworks.push(new Firework(data.mobileId, data.intensity));
+            }
+        });
+
+        socket.on('control_musica_visualizador', (action) => {
             if (musicaFondo.isLoaded()) {
                 if (action === 'play' && !musicaFondo.isPlaying()) {
-                    musicaFondo.play();
-                    console.log('Música de fondo reproducida.');
+                    musicaFondo.loop();
                 } else if (action === 'pause' && musicaFondo.isPlaying()) {
                     musicaFondo.pause();
-                    console.log('Música de fondo pausada.');
                 } else if (action === 'forward') {
-                    const currentTime = musicaFondo.currentTime();
-                    const newTime = currentTime + 10;
+                    const newTime = musicaFondo.currentTime() + 10;
                     if (newTime < musicaFondo.duration()) {
                         musicaFondo.jump(newTime);
                     }
-                    console.log('Música de fondo adelantada 10 segundos.');
                 }
             }
         });
+
+        socket.on('mostrar_gif_sonrie', () => {
+            smileTimer = 240;
+        });
+
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+        }
     </script>
 </body>
 </html>
